@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bristol Regional Food Network{% endblock %}</title>
+    <script>
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+
+    <!-- Design System -->
+    <link rel="stylesheet" href="{% static 'design-system.css' %}">
+
+    <!-- Base CSS -->
+    <link rel="stylesheet" href="{% static 'base.css' %}">
+
+    <style>
+        /* Message Animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(30px); }
+        }
+        @keyframes progressShrink {
+            from { width: 100%; }
+            to   { width: 0%; }
+        }
+
+        .messages-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            width: 350px;
+            max-width: calc(100vw - 40px);
+            pointer-events: none;
+        }
+        .message-item {
+            pointer-events: auto;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+            animation: slideIn 0.3s ease-out forwards;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.02);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .message-item.removing { animation: slideOut 0.2s ease-in forwards; }
+        .message-success  { background: linear-gradient(135deg, rgba(240,253,244,0.97), rgba(220,252,231,0.97)); border-left: 4px solid #16a34a; color: #14532d; }
+        .message-error    { background: linear-gradient(135deg, rgba(254,242,242,0.97), rgba(254,226,226,0.97)); border-left: 4px solid #dc2626; color: #7f1d1d; }
+        .message-warning  { background: linear-gradient(135deg, rgba(255,251,235,0.97), rgba(254,243,199,0.97)); border-left: 4px solid #d97706; color: #78350f; }
+        .message-info     { background: linear-gradient(135deg, rgba(239,246,255,0.97), rgba(219,234,254,0.97)); border-left: 4px solid #2563eb; color: #1e3a8a; }
+        .message-content  { display: flex; align-items: flex-start; padding: 16px; }
+        .message-icon     { flex-shrink: 0; margin-right: 12px; font-size: 1.25rem; }
+        .message-text     { flex: 1; font-size: 0.875rem; line-height: 1.5; word-break: break-word; }
+        .message-close    { flex-shrink: 0; margin-left: 12px; background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .message-close:hover { color: #4b5563; background-color: rgba(0,0,0,0.05); }
+        .message-progress { height: 3px; width: 100%; background-color: rgba(0,0,0,0.1); }
+        .progress-fill    { height: 100%; width: 100%; animation: progressShrink 5s linear forwards; }
+        .progress-fill.success { background: #16a34a; }
+        .progress-fill.error   { background: #dc2626; }
+        .progress-fill.warning { background: #d97706; }
+        .progress-fill.info    { background: #2563eb; }
+        .message-item:hover .progress-fill { animation-play-state: paused; }
+
+        /* ── Navbar ── */
+        .fd-navbar {
+            background-color: var(--color-nav-bg);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+        }
+
+        .fd-navbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.25rem;
+            height: 64px;
+            gap: 1rem;
+
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Brand */
+        .fd-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: white;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .fd-brand i { color: #6ee76e; font-size: 1.35rem; }
+        .fd-brand span { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
+
+        /* Center search */
+        .fd-search {
+            flex: 1;
+            max-width: 480px;
+            margin: 0 1rem;
+        }
+        .fd-search form {
+            display: flex;
+            align-items: center;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 0 0.75rem;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .fd-search form:focus-within {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
+        }
+        .fd-search form i { color: rgba(255,255,255,0.6); font-size: 0.9rem; flex-shrink: 0; }
+        .fd-search input {
+            background: none;
+            border: none;
+            outline: none;
+            color: white;
+            font-size: 0.875rem;
+            padding: 0.55rem 0.5rem;
+            width: 100%;
+            font-family: inherit;
+        }
+        .fd-search input::placeholder { color: rgba(255,255,255,0.5); }
+        [data-theme="dark"] .fd-search input { background: none !important; }
+
+        /* Right nav */
+        .fd-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            flex-shrink: 0;
+        }
+
+        .fd-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.45rem 0.75rem;
+            border-radius: 7px;
+            transition: background-color 0.15s, color 0.15s;
+            white-space: nowrap;
+        }
+        .fd-nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .fd-icon-btn {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            padding: 0.45rem;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: background-color 0.15s, color 0.15s;
+            position: relative;
+        }
+        .fd-icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        /* ── Palette switcher dropdown ── */
+        .palette-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: var(--color-surface);
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            min-width: 200px;
+            z-index: 9999;
+            padding: 0.5rem;
+        }
+        .palette-dropdown-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--color-muted);
+            padding: 0.3rem 0.5rem 0.5rem;
+        }
+        .palette-swatch {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            width: 100%;
+            background: none;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0.45rem 0.6rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text);
+            cursor: pointer;
+            font-family: inherit;
+            text-align: left;
+            transition: background 0.12s;
+        }
+        .palette-swatch:hover { background: var(--color-primary-light); }
+        .swatch-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+        .swatch-check {
+            margin-left: auto;
+            color: var(--color-primary);
+            font-size: 0.8rem;
+            display: none;
+        }
+        .swatch-check.visible { display: inline; }
+
+        .fd-cart-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #f59e0b;
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 700;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        /* Notification badge */
+        .fd-notif-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 700;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 3px;
+            border-radius: 99px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        /* Notification dropdown */
+        .fd-notif-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            width: 340px;
+            max-width: calc(100vw - 2rem);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.15);
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.08);
+            z-index: 9999;
+        }
+        .fd-notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            background: #f9fafb;
+        }
+        .fd-notif-header span { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; }
+        .fd-notif-header a { font-size: 0.75rem; color: #15803d; text-decoration: none; font-weight: 600; }
+        .fd-notif-header a:hover { text-decoration: underline; }
+        .fd-notif-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f9fafb;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            cursor: pointer;
+        }
+        .fd-notif-item:hover { background: #f0fdf4; }
+        .fd-notif-item.unread { background: #f0fdf4; border-left: 3px solid #16a34a; }
+        .fd-notif-item.unread:hover { background: #dcfce7; }
+        .fd-notif-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+        }
+        .fd-notif-body { flex: 1; min-width: 0; }
+        .fd-notif-title { font-size: 0.85rem; font-weight: 600; color: #111827; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fd-notif-msg   { font-size: 0.78rem; color: #6b7280; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .fd-notif-time  { font-size: 0.7rem; color: #9ca3af; margin-top: 3px; }
+        .fd-notif-footer { padding: 0.6rem 1rem; text-align: center; }
+        .fd-notif-footer a { font-size: 0.825rem; color: #15803d; font-weight: 600; text-decoration: none; }
+        .fd-notif-footer a:hover { text-decoration: underline; }
+        .fd-notif-empty { padding: 2rem 1rem; text-align: center; color: #9ca3af; font-size: 0.875rem; }
+
+        [data-theme="dark"] .fd-notif-dropdown { background: #1f2937; border-color: #374151; }
+        [data-theme="dark"] .fd-notif-header { background: #111827; border-color: #374151; }
+        [data-theme="dark"] .fd-notif-header span { color: #6b7280; }
+        [data-theme="dark"] .fd-notif-header a { color: #6ee76e; }
+        [data-theme="dark"] .fd-notif-item { border-color: #374151; color: #d1d5db; }
+        [data-theme="dark"] .fd-notif-item:hover { background: #1a3c1a; }
+        [data-theme="dark"] .fd-notif-item.unread { background: #1a3c1a; border-left-color: #6ee76e; }
+        [data-theme="dark"] .fd-notif-item.unread:hover { background: #1f4a1f; }
+        [data-theme="dark"] .fd-notif-title { color: #f9fafb; }
+        [data-theme="dark"] .fd-notif-msg { color: #9ca3af; }
+        [data-theme="dark"] .fd-notif-footer { border-top: 1px solid #374151; }
+        [data-theme="dark"] .fd-notif-footer a { color: #6ee76e; }
+
+        /* User dropdown */
+        .fd-user-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            cursor: pointer;
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background-color 0.15s;
+        }
+        .fd-user-btn:hover { background: rgba(255,255,255,0.2); }
+        .fd-user-btn i { font-size: 1rem; }
+
+        .fd-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            min-width: 200px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        .fd-dropdown-section {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9ca3af;
+            background: #f9fafb;
+        }
+        .fd-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.6rem 1rem;
+            color: #374151;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: background-color 0.12s, color 0.12s;
+        }
+        .fd-dropdown a:hover { background: #f0fdf4; color: #15803d; }
+        .fd-dropdown a i { width: 16px; text-align: center; color: #6b7280; }
+        .fd-dropdown a:hover i { color: #15803d; }
+        .fd-dropdown hr { margin: 0.25rem 0; border-color: #f3f4f6; }
+
+        [data-theme="dark"] .fd-dropdown {
+            background: #1f2937;
+            border-color: #374151;
+        }
+        [data-theme="dark"] .fd-dropdown-section { background: #111827; color: #6b7280; }
+        [data-theme="dark"] .fd-dropdown a { color: #d1d5db; }
+        [data-theme="dark"] .fd-dropdown a:hover { background: #1a3c1a; color: #6ee76e; }
+        [data-theme="dark"] .fd-dropdown a i { color: #6b7280; }
+        [data-theme="dark"] .fd-dropdown a:hover i { color: #6ee76e; }
+        [data-theme="dark"] .fd-dropdown hr { border-color: #374151; }
+
+        .fd-logout-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 7px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: background 0.15s;
+        }
+        .fd-logout-btn:hover { background: #b91c1c; }
+
+        /* Mobile hamburger */
+        .fd-hamburger {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.4rem;
+            padding: 0.35rem;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .fd-hamburger:hover { background: rgba(255,255,255,0.1); }
+
+        /* Mobile menu */
+        .fd-mobile-menu {
+            background: #1a3c1a;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 0.75rem 1.25rem 1rem;
+        }
+
+        .fd-mobile-menu .fd-search { max-width: 100%; margin: 0 0 0.75rem; }
+
+        .fd-mobile-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .fd-mobile-links a, .fd-mobile-links button {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.5rem 0.75rem;
+            border-radius: 7px;
+            transition: background 0.15s;
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+        }
+        .fd-mobile-links a:hover, .fd-mobile-links button:hover { background: rgba(255,255,255,0.1); color: white; }
+        .fd-mobile-links hr { border-color: rgba(255,255,255,0.12); margin: 0.35rem 0; }
+
+        @media (max-width: 1100px) {
+            .fd-search { display: none; }
+        }
+
+        @media (max-width: 800px) {
+            .fd-nav-link.hide-mobile { display: none; }
+        }
+
+        @media (max-width: 640px) {
+            .fd-hamburger { display: flex; }
+            .fd-nav-right { display: none; }
+        }
+        @media (min-width: 641px) {
+            .fd-mobile-menu { display: none !important; }
+        }
+
+        /* ── Footer ── */
+        .fd-footer {
+            background-color: #1a3c1a;
+            color: rgba(255,255,255,0.85);
+            padding: 3rem 0 0;
+            margin-top: 4rem;
+        }
+        .fd-footer-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1.5fr;
+            gap: 3rem;
+        }
+        .fd-footer-brand i { color: #6ee76e; font-size: 1.4rem; }
+        .fd-footer-brand span { font-weight: 700; font-size: 1.15rem; color: white; }
+        .fd-footer-tagline { font-size: 0.9rem; color: rgba(255,255,255,0.65); margin-top: 0.5rem; line-height: 1.6; max-width: 260px; }
+        .fd-footer h4 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.5); margin-bottom: 1rem; }
+        .fd-footer-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+        .fd-footer-links a { color: rgba(255,255,255,0.75); font-size: 0.9rem; text-decoration: none; transition: color 0.15s; }
+        .fd-footer-links a:hover { color: white; }
+        .fd-trust-item { display: flex; align-items: center; gap: 0.6rem; color: rgba(255,255,255,0.8); font-size: 0.875rem; margin-bottom: 0.7rem; }
+        .fd-trust-item i { color: #6ee76e; font-size: 1rem; }
+        .fd-footer-bottom { background: rgba(0,0,0,0.25); margin-top: 2.5rem; padding: 1rem 1.5rem; }
+        .fd-footer-bottom-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+
+        @media (max-width: 768px) {
+            .fd-footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+        }
+
+        main { min-height: calc(100vh - 64px - 200px); }
+    </style>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <!-- Alpine.js -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+
+    {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'modern.css' %}">
+</head>
+
+<body class="brfn-modern">
+    <!-- ══════════════ NAVBAR ══════════════ -->
+    <nav class="fd-navbar" x-data="{ mobileOpen: false }">
+        <div class="fd-navbar-inner">
+
+            <!-- Brand -->
+            <a href="{% url 'mainApp:home' %}" class="fd-brand">
+                <span class="fd-brand-mark"><i class="bi bi-grid-1x2-fill"></i></span>
+                <span class="fd-brand-copy"><strong>BRFN</strong><small>Bristol local market</small></span>
+            </a>
+
+            <!-- Center Search (desktop) -->
+            <div class="fd-search">
+                <form method="get" action="{% url 'mainApp:products:product_list' %}">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="q" placeholder="Search fresh produce…" autocomplete="off">
+                </form>
+            </div>
+
+            <!-- Right nav -->
+            <div class="fd-nav-right">
+                <!-- Marketplace link -->
+                <a href="{% url 'mainApp:products:product_list' %}" class="fd-nav-link hide-mobile">
+                    <i class="bi bi-grid"></i> Market
+                </a>
+
+                <!-- TC-019: Surplus Deals -->
+                <a href="{% url 'mainApp:products:surplus_deals' %}" class="fd-nav-link hide-mobile" title="Last-minute deals">
+                    <i class="bi bi-lightning-charge-fill"></i> Deals
+                </a>
+
+                <!-- TC-020: Recipes -->
+                <a href="{% url 'mainApp:products:recipe_list' %}" class="fd-nav-link hide-mobile"
+                   title="Recipes from local farms">
+                    <i class="bi bi-journal-richtext"></i> Recipes
+                </a>
+
+                <!-- Stories -->
+                <a href="{% url 'mainApp:products:all_stories' %}" class="fd-nav-link hide-mobile"
+                   title="Stories and recipes from Bristol producers">
+                    <i class="bi bi-chat-square-text"></i> Stories
+                </a>
+
+                <!-- Dark mode toggle -->
+                <button onclick="toggleDarkMode()" id="dark-mode-btn" class="fd-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">
+                    <i id="dark-mode-icon" class="bi bi-moon-fill"></i>
+                </button>
+
+                {% if user.is_authenticated %}
+                    <!-- Notifications -->
+                    <div x-data="{
+                            notifOpen: false,
+                            badgeCount: {{ notification_count }},
+                            toggle() {
+                                this.notifOpen = !this.notifOpen;
+                                if (this.notifOpen && this.badgeCount > 0) this.markAllRead();
+                            },
+                            markAllRead() {
+                                this.badgeCount = 0;
+                                fetch('{% url 'mainApp:notifications_read_all' %}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-CSRFToken': '{{ csrf_token }}',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                });
+                            }
+                         }"
+                         style="position:relative;">
+                        <button @click="toggle()" @keydown.escape="notifOpen = false"
+                                class="fd-icon-btn" aria-label="Notifications" title="Notifications">
+                            <i class="bi bi-bell-fill"></i>
+                            <span class="fd-notif-badge"
+                                  x-show="badgeCount > 0"
+                                  x-text="badgeCount"
+                                  style="{% if not notification_count %}display:none;{% endif %}"></span>
+                        </button>
+
+                        <div x-show="notifOpen" @click.away="notifOpen = false"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="fd-notif-dropdown" style="display:none;">
+
+                            <div class="fd-notif-header">
+                                <span>Notifications</span>
+                                <button @click="markAllRead()"
+                                        x-show="badgeCount > 0"
+                                        style="background:none; border:none; cursor:pointer; font-size:0.75rem; color:#15803d; font-weight:600; font-family:inherit; padding:0; display:none;"
+                                        onmouseover="this.style.textDecoration='underline'"
+                                        onmouseout="this.style.textDecoration='none'">
+                                    Mark all read
+                                </button>
+                            </div>
+
+                            {% with recent_notifs=request.user.notifications.all %}
+                            {% if recent_notifs %}
+                                {% for notif in recent_notifs|slice:":5" %}
+                                <a href="{% if notif.link %}{{ notif.link }}{% else %}{% url 'mainApp:notifications' %}{% endif %}"
+                                   class="fd-notif-item {% if not notif.is_read %}unread{% endif %}">
+                                    <div class="fd-notif-icon"
+                                         style="{% if notif.notification_type == 'order' %}background:#dcfce7;color:#16a34a;
+                                                {% elif notif.notification_type == 'promo' %}background:#fff7ed;color:#ea580c;
+                                                {% elif notif.notification_type == 'system' %}background:#eff6ff;color:#2563eb;
+                                                {% else %}background:#f3f4f6;color:#6b7280;{% endif %}">
+                                        <i class="bi {% if notif.notification_type == 'order' %}bi-bag-check{% elif notif.notification_type == 'promo' %}bi-tag{% elif notif.notification_type == 'system' %}bi-gear{% else %}bi-info-circle{% endif %}"></i>
+                                    </div>
+                                    <div class="fd-notif-body">
+                                        <div class="fd-notif-title">{{ notif.title }}</div>
+                                        <div class="fd-notif-msg">{{ notif.message }}</div>
+                                        <div class="fd-notif-time">{{ notif.created_at|timesince }} ago</div>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                                <div class="fd-notif-footer">
+                                    <a href="{% url 'mainApp:notifications' %}">View all notifications</a>
+                                </div>
+                            {% else %}
+                                <div class="fd-notif-empty">
+                                    <i class="bi bi-bell-slash" style="font-size:1.5rem; display:block; margin-bottom:0.4rem; opacity:0.4;"></i>
+                                    No notifications yet
+                                </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <!-- Cart icon -->
+                    <a href="{% url 'mainApp:customers:view_cart' %}" class="fd-icon-btn" aria-label="View cart" style="position: relative;">
+                        <i class="bi bi-cart3"></i>
+                        {% if cart_count > 0 %}
+                            <span class="fd-cart-badge">{{ cart_count }}</span>
+                        {% endif %}
+                    </a>
+
+                    <!-- User dropdown -->
+                    <div x-data="{ open: false }" class="relative" style="position:relative;">
+                        <button @click="open = !open" @keydown.escape="open = false" class="fd-user-btn">
+                            <i class="bi bi-person-circle"></i>
+                            <span>{{ user.username }}</span>
+                            <i class="bi bi-chevron-down" style="font-size:0.7rem;" :class="{ 'rotate-180': open }" style="transition:transform 0.2s;"></i>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-transition class="fd-dropdown" style="display:none;">
+                            <div class="fd-dropdown-section">My Account</div>
+                            <a href="{% url 'mainApp:profile' %}"><i class="bi bi-person"></i> Profile</a>
+                            <a href="{% url 'mainApp:customers:view_cart' %}"><i class="bi bi-cart3"></i> Cart</a>
+                            {% if user.role == 'producer' %}
+                            <hr>
+                            <div class="fd-dropdown-section">Producer</div>
+                            <a href="{% url 'mainApp:producers:myproduct' %}"><i class="bi bi-box-seam"></i> My Products</a>
+                            <a href="{% url 'mainApp:producers:incoming_orders' %}"><i class="bi bi-receipt"></i> Incoming Orders</a>
+                            <a href="{% url 'mainApp:producers:quality_scan' %}"><i class="bi bi-stars"></i> Quality Scan</a>
+                            <a href="{% url 'mainApp:producers:content' %}"><i class="bi bi-journal-richtext"></i> Stories & Recipes</a>
+                            {% endif %}
+                            {% if user.role == 'restaurant' %}
+                            <hr>
+                            <div class="fd-dropdown-section">Restaurant</div>
+                            <a href="{% url 'mainApp:orders:recurring_list' %}"><i class="bi bi-arrow-repeat"></i> Recurring Orders</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <form action="{% url 'mainApp:logout' %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="fd-logout-btn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </form>
+
+                {% else %}
+                    <!-- Account dropdown for guests -->
+                    <div x-data="{ open: false }" class="relative" style="position:relative;">
+                        <button @click="open = !open" @keydown.escape="open = false" class="fd-user-btn">
+                            <i class="bi bi-person-circle"></i>
+                            <span>Account</span>
+                            <i class="bi bi-chevron-down" style="font-size:0.7rem;"></i>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="fd-dropdown" style="display:none;">
+
+                            <div class="fd-dropdown-section">Customers</div>
+                            <a href="{% url 'mainApp:customers:login' %}"><i class="bi bi-box-arrow-in-right"></i> Login</a>
+                            <a href="{% url 'mainApp:customers:register' %}"><i class="bi bi-pencil-square"></i> Register</a>
+
+                            <hr>
+
+                            <div class="fd-dropdown-section">Producer</div>
+                            <a href="{% url 'mainApp:producers:login' %}"><i class="bi bi-box-arrow-in-right"></i> Login</a>
+                            <a href="{% url 'mainApp:producers:register' %}"><i class="bi bi-pencil-square"></i> Register</a>
+
+                            <hr>
+
+                            <div class="fd-dropdown-section">Administrator</div>
+                            <a href="{% url 'admin:index' %}"><i class="bi bi-shield-lock"></i> Admin Login</a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Mobile hamburger -->
+            <button class="fd-hamburger" @click="mobileOpen = !mobileOpen" aria-label="Toggle menu">
+                <i :class="mobileOpen ? 'bi bi-x-lg' : 'bi bi-list'"></i>
+            </button>
+        </div>
+
+        <!-- Mobile menu -->
+        <div class="fd-mobile-menu" x-show="mobileOpen" x-transition style="display:none;">
+            <div class="fd-search">
+                <form method="get" action="{% url 'mainApp:products:product_list' %}">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="q" placeholder="Search produce…" autocomplete="off">
+                </form>
+            </div>
+            <div class="fd-mobile-links">
+                <a href="{% url 'mainApp:products:product_list' %}"><i class="bi bi-basket2"></i> Marketplace</a>
+                <a href="{% url 'mainApp:products:surplus_deals' %}"> Surplus Deals</a>
+                <a href="{% url 'mainApp:products:recipe_list' %}"><i class="bi bi-journal-richtext"></i> Recipes</a>
+                <a href="{% url 'mainApp:products:all_stories' %}"><i class="bi bi-newspaper"></i> Stories</a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'mainApp:profile' %}"><i class="bi bi-person"></i> My Account</a>
+                    <a href="{% url 'mainApp:notifications' %}">
+                        <i class="bi bi-bell"></i> Notifications
+                        {% if notification_count > 0 %}<span style="background:#ef4444;color:white;font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:2px;">{{ notification_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'mainApp:customers:view_cart' %}"><i class="bi bi-cart3"></i> Cart</a>
+                    {% if user.role == 'producer' %}
+                        <a href="{% url 'mainApp:producers:myproduct' %}"><i class="bi bi-box-seam"></i> My Products</a>
+                        <a href="{% url 'mainApp:producers:incoming_orders' %}"><i class="bi bi-receipt"></i> Incoming Orders</a>
+                        <a href="{% url 'mainApp:producers:quality_scan' %}"><i class="bi bi-stars"></i> Quality Scan</a>
+                        <a href="{% url 'mainApp:producers:content' %}"> Stories & Recipes</a>
+                    {% endif %}
+                    {% if user.role == 'restaurant' %}
+                        <a href="{% url 'mainApp:orders:recurring_list' %}"><i class="bi bi-arrow-repeat"></i> Recurring Orders</a>
+                    {% endif %}
+                    <hr>
+                    <form action="{% url 'mainApp:logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                    </form>
+                {% else %}
+                    <hr>
+                    <a href="{% url 'mainApp:customers:login' %}"><i class="bi bi-box-arrow-in-right"></i> Customer Login</a>
+                    <a href="{% url 'mainApp:customers:register' %}"><i class="bi bi-pencil-square"></i> Customer Register</a>
+                    <a href="{% url 'mainApp:producers:login' %}"><i class="bi bi-truck"></i> Producer Login</a>
+                    <a href="{% url 'mainApp:producers:register' %}"><i class="bi bi-pencil-square"></i> Producer Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- ══════════════ MESSAGES ══════════════ -->
+    {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+                <div class="message-item
+                    {% if message.tags == 'success' %}message-success
+                    {% elif message.tags == 'error' %}message-error
+                    {% elif message.tags == 'warning' %}message-warning
+                    {% else %}message-info{% endif %}"
+                    role="alert"
+                    data-message-id="{{ forloop.counter }}">
+
+                    <div class="message-content">
+                        <div class="message-icon">
+                            <i class="bi
+                                {% if message.tags == 'success' %}bi-check-circle-fill text-success
+                                {% elif message.tags == 'error' %}bi-exclamation-triangle-fill text-danger
+                                {% elif message.tags == 'warning' %}bi-exclamation-triangle text-warning
+                                {% else %}bi-info-circle-fill text-info{% endif %}">
+                            </i>
+                        </div>
+                        <div class="message-text
+                            {% if message.tags == 'success' %}text-success
+                            {% elif message.tags == 'error' %}text-danger
+                            {% elif message.tags == 'warning' %}text-warning
+                            {% else %}text-info{% endif %}">
+                            {{ message }}
+                        </div>
+                        <button class="message-close" onclick="dismissMessage(this)" aria-label="Close">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+
+                    <div class="message-progress">
+                        <div class="progress-fill
+                            {% if message.tags == 'success' %}success
+                            {% elif message.tags == 'error' %}error
+                            {% elif message.tags == 'warning' %}warning
+                            {% else %}info{% endif %}">
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- ══════════════ MAIN CONTENT ══════════════ -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ══════════════ FOOTER ══════════════ -->
+    <footer class="fd-footer">
+        <div class="fd-footer-grid">
+            <!-- Brand column -->
+            <div>
+                <div class="fd-footer-brand d-flex align-items-center gap-2 mb-2">
+                    <span class="fd-brand-mark"><i class="bi bi-grid-1x2-fill"></i></span>
+                    <span>BRFN / Bristol Local Market</span>
+                </div>
+                <p class="fd-footer-tagline">A digital exchange for Bristol's independent growers, makers and neighbourhood kitchens.</p>
+            </div>
+
+            <!-- Quick links -->
+            <div>
+                <h4>Quick Links</h4>
+                <ul class="fd-footer-links">
+                    <li><a href="{% url 'mainApp:products:product_list' %}"><i class="bi bi-basket2 me-1"></i> Marketplace</a></li>
+                    <li><a href="{% url 'mainApp:producers:register' %}"><i class="bi bi-shop me-1"></i> Become a Producer</a></li>
+                    {% if user.is_authenticated %}
+                    <li><a href="{% url 'mainApp:profile' %}"><i class="bi bi-person me-1"></i> My Account</a></li>
+                    {% else %}
+                    <li><a href="{% url 'mainApp:customers:login' %}"><i class="bi bi-box-arrow-in-right me-1"></i> Login</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <!-- Trust badges -->
+            <div>
+                <h4>Our Commitment</h4>
+                <div class="fd-trust-item"><i class="bi bi-patch-check-fill"></i> Locally Sourced Produce</div>
+                <div class="fd-trust-item"><i class="bi bi-leaf-fill"></i> Food Miles Tracked</div>
+                <div class="fd-trust-item"><i class="bi bi-shield-lock-fill"></i> Secure Payments</div>
+                <div class="fd-trust-item"><i class="bi bi-people-fill"></i> Community First</div>
+            </div>
+        </div>
+
+        <div class="fd-footer-bottom">
+            <div class="fd-footer-bottom-inner">
+                <span>&copy; 2026 Bristol Regional Food Network &mdash; Bristol Food Network</span>
+                <span>Supporting local farmers &amp; communities</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ══════════════ JAVASCRIPT ══════════════ -->
+    <script>
+        function dismissMessage(button) {
+            const messageItem = button.closest('.message-item');
+            if (messageItem) {
+                messageItem.classList.add('removing');
+                setTimeout(() => {
+                    if (messageItem.parentNode) {
+                        messageItem.remove();
+                        const container = document.querySelector('.messages-container');
+                        if (container && container.children.length === 0) container.remove();
+                    }
+                }, 200);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const messages = document.querySelectorAll('.message-item');
+            messages.forEach(function (message) {
+                const timeoutId = setTimeout(() => {
+                    if (message && message.parentNode) {
+                        message.classList.add('removing');
+                        setTimeout(() => {
+                            if (message.parentNode) {
+                                message.remove();
+                                const container = document.querySelector('.messages-container');
+                                if (container && container.children.length === 0) container.remove();
+                            }
+                        }, 200);
+                    }
+                }, 5000);
+                message._dismissTimeout = timeoutId;
+            });
+        });
+    </script>
+
+    <script>
+        /* ── Dark mode ── */
+        function toggleDarkMode() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+            localStorage.setItem('darkMode', !isDark);
+            updateDarkModeIcon(!isDark);
+        }
+
+        function updateDarkModeIcon(isDark) {
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            updateDarkModeIcon(document.documentElement.getAttribute('data-theme') === 'dark');
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

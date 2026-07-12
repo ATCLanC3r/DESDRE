@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static product_extras %}
+
+{% block title %}Field Notes - Bristol Regional Food Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.editorial-page{--ink:#121317;--coral:#ff7258;--mint:#b9f2d0;--butter:#ffdc68;--lilac:#c5b6ff;max-width:1380px;margin:0 auto;padding:4.5rem 2rem 6rem;color:var(--ink)}
+.editorial-kicker{font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin:0 0 1rem}
+.editorial-hero{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:3rem;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:2.25rem;margin-bottom:2.25rem}
+.editorial-hero h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(3.2rem,7vw,7.2rem);line-height:.88;letter-spacing:-.065em;margin:0;max-width:900px}
+.editorial-intro{font-size:1.05rem;line-height:1.7;margin:0 0 .3rem;color:#4b4e57}
+.editorial-stat{display:flex;gap:1.2rem;margin-top:1.3rem}.editorial-stat span{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;font-weight:750}.editorial-stat b{font-family:Georgia,serif;font-size:1.45rem;margin-right:.3rem}
+.section-heading{display:flex;justify-content:space-between;align-items:end;gap:2rem;margin:4.5rem 0 1.4rem}.section-heading h2{font-family:Georgia,serif;font-size:clamp(2rem,4vw,3.6rem);letter-spacing:-.045em;margin:0}.section-heading p{max-width:420px;margin:0;color:#666b73}
+.story-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:1.2rem}
+.story-tile{grid-column:span 4;min-height:390px;border:2px solid var(--ink);border-radius:28px;overflow:hidden;background:var(--mint);display:flex;flex-direction:column;text-decoration:none;color:var(--ink);transition:transform .2s,box-shadow .2s}
+.story-tile:first-child{grid-column:span 8;background:var(--coral)}.story-tile:nth-child(3n){background:var(--lilac)}.story-tile:hover{color:var(--ink);transform:translateY(-5px);box-shadow:8px 8px 0 var(--ink)}
+.story-media{height:220px;border-bottom:2px solid var(--ink);overflow:hidden;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center}.story-tile:first-child .story-media{height:310px}.story-media img{width:100%;height:100%;object-fit:cover}.story-placeholder{font-size:4rem}
+.story-copy{padding:1.4rem 1.5rem 1.6rem;display:flex;flex-direction:column;flex:1}.story-meta{display:flex;justify-content:space-between;gap:1rem;text-transform:uppercase;letter-spacing:.09em;font-size:.68rem;font-weight:800}.story-copy h3{font-family:Georgia,serif;font-size:1.7rem;line-height:1.05;letter-spacing:-.03em;margin:1.1rem 0 .65rem}.story-tile:first-child h3{font-size:2.5rem}.story-excerpt{font-size:.91rem;line-height:1.55;color:#303239;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.story-arrow{margin-top:auto;padding-top:1.2rem;font-size:1.35rem;align-self:flex-end}
+.recipe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2rem}.recipe-tile{border:2px solid var(--ink);border-radius:24px;overflow:hidden;text-decoration:none;color:var(--ink);background:var(--butter);transition:transform .2s}.recipe-tile:nth-child(3n+2){background:var(--mint)}.recipe-tile:nth-child(3n){background:var(--lilac)}.recipe-tile:hover{color:var(--ink);transform:translateY(-4px)}
+.recipe-image{height:210px;border-bottom:2px solid var(--ink);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:3rem}.recipe-image img{width:100%;height:100%;object-fit:cover}.recipe-body{padding:1.25rem}.recipe-body h3{font-family:Georgia,serif;font-size:1.5rem;letter-spacing:-.025em;margin:.55rem 0}.recipe-producer{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.recipe-tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.8rem}.recipe-tags span{border:1.5px solid var(--ink);border-radius:99px;padding:.2rem .55rem;font-size:.68rem;font-weight:700}
+.editorial-empty{border:2px dashed var(--ink);border-radius:26px;padding:4rem 2rem;text-align:center;background:#faf8f2}.editorial-empty i{display:block;font-size:2.5rem;margin-bottom:.8rem}.editorial-empty p{margin:0;color:#64676e}
+@media(max-width:900px){.editorial-hero{grid-template-columns:1fr}.story-tile,.story-tile:first-child{grid-column:span 6}.recipe-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.editorial-page{padding:3rem 1rem 4rem}.story-tile,.story-tile:first-child{grid-column:1/-1}.story-tile:first-child .story-media,.story-media{height:220px}.recipe-grid{grid-template-columns:1fr}.section-heading{align-items:start;flex-direction:column;gap:.5rem}}
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="editorial-page">
+  <header class="editorial-hero">
+    <div><p class="editorial-kicker">Stories from the source</p><h1>Field notes &amp; good food.</h1></div>
+    <div><p class="editorial-intro">Meet the people growing Bristol's food, learn what is in season, and cook with ingredients that travelled fewer miles.</p><div class="editorial-stat"><span><b>{{ stories|length }}</b> stories</span><span><b>{{ recipes|length }}</b> recipes</span></div></div>
+  </header>
+
+  <section>
+    <div class="section-heading"><h2>From the farms</h2><p>Harvest updates, growing knowledge and honest dispatches from local producers.</p></div>
+    {% if stories %}<div class="story-grid">
+      {% for story in stories %}<a class="story-tile" href="{% url 'mainApp:products:producer_stories' story.producer.id %}">
+        <div class="story-media">{% with image=story.images.all|first %}{% if image %}<img src="{{ image.image.url }}" alt="{{ image.caption|default:story.title }}">{% else %}<span class="story-placeholder">&#127793;</span>{% endif %}{% endwith %}</div>
+        <div class="story-copy"><div class="story-meta"><span>{{ story.producer.business_name }}</span><span>{{ story.published_at|date:'d M Y' }}</span></div><h3>{{ story.title }}</h3><p class="story-excerpt">{{ story.body|striptags }}</p><span class="story-arrow" aria-hidden="true">&#8599;</span></div>
+      </a>{% endfor %}
+    </div>{% else %}<div class="editorial-empty"><i class="bi bi-feather"></i><p>No approved farm stories yet. Fresh notes will appear here after moderation.</p></div>{% endif %}
+  </section>
+
+  <section>
+    <div class="section-heading"><h2>Cook with the season</h2><p>Producer-tested recipes designed around ingredients available from the network.</p></div>
+    {% if recipes %}<div class="recipe-grid">
+      {% for recipe in recipes %}<a class="recipe-tile" href="{% url 'mainApp:products:recipe_detail' recipe.id %}"><div class="recipe-image">{% if recipe.image %}<img src="{{ recipe.image.url }}" alt="{{ recipe.title }}">{% else %}<i class="bi bi-journal-richtext"></i>{% endif %}</div><div class="recipe-body"><div class="recipe-producer">{{ recipe.producer.business_name }}</div><h3>{{ recipe.title }}</h3>{% if recipe.description %}<p>{{ recipe.description|truncatewords:18 }}</p>{% endif %}{% if recipe.seasons.all %}<div class="recipe-tags">{% for season in recipe.seasons.all %}<span>{{ season.name }}</span>{% endfor %}</div>{% endif %}</div></a>{% endfor %}
+    </div>{% else %}<div class="editorial-empty"><i class="bi bi-journal-richtext"></i><p>No approved recipes yet.</p></div>{% endif %}
+  </section>
+</main>
+{% endblock %}

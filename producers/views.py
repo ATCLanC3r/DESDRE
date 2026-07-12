@@ -1,0 +1,955 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import authenticate, login
+from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from mainApp.models import ProducerProfile
+from django.contrib.auth import authenticate, login
+
+from django.core.paginator import Paginator
+from products.models import Product, ProductCategory
+from products.forms import ProductForm
+from mainApp.models import RegularUser
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from datetime import timezone, timedelta
+from producers.forms import ProducerRegistrationForm, ProducerPersonalInfoForm, ProducerLoginForm, RecipeForm, FarmStoryForm
+from django.db.models import Q, Sum
+from mainApp.decorators import producer_required
+from orders.models import OrderPayment, OrderItem, OrderProducer
+from products.models import Product
+from django.utils import timezone as tz
+from products.forms import SurplusDealForm
+from producers.models import Recipe, FarmStory, FarmStoryImage
+
+from django.contrib.auth import logout, update_session_auth_hash
+from mainApp.models import Address
+
+from mainApp.utils import geocode_postcode, haversine_miles
+from mainApp.session import RememberMeLoginMixin
+from django.contrib.auth.views import LoginView
+import logging
+
+
+# Create your views here.
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+# =====
+# Custom Login View with Remember Me
+# =====
+class ProducerLoginView(RememberMeLoginMixin, LoginView):
+    """Custom login view for producers with remember me support"""
+    template_name = "producers/login.html"
+    authentication_form = ProducerLoginForm
+    redirect_authenticated_user = True
+    extra_context = {'title': 'Producer Login'}
+    success_url = '/'
+
+def register_view(request):
+    """
+    Producer registration view using the form
+    """
+    # Redirect if already logged in
+    if request.user.is_authenticated:
+        return redirect('mainApp:home')
+
+    if request.method == 'POST':
+        try:
+            form = ProducerRegistrationForm(request.POST)
+            if form.is_valid():
+                user = form.save()
+
+                # login(request,user)
+
+                messages.success(request, f"Welcome {user.username}! Your producer account has been created successfully.")
+                messages.info(request, 'Please log in to access your producer dashboard.')
+                return redirect('mainApp:producers:login')
+            else:
+                messages.error(request, 'Please correct the errors below.')
+
+        except Exception as e:
+            print (e)
+            messages.error(request, 'db error')
+
+    else:
+        form = ProducerRegistrationForm()
+
+    context = {
+        'form': form,
+        'title': 'Producer Registration'
+    }
+    return render(request, 'producers/register.html', context)
+
+
+# =================
+# product managment
+# =================
+
+@login_required
+@producer_required
+def myproduct_view(request):
+    """
+    Display products for the logged-in producer
+
+    All the q functions dont work btw
+    """
+    producer_profile = request.user.producer_profile
+
+    # Base queryset - filter products by this producer
+    products = Product.objects.filter(
+        producer=producer_profile,
+        is_active=True,
+        )
+
+    # Apply filters from request.GET
+    # Filter by availability (TC-003, TC-016)
+    availability = request.GET.get('availability')
+    if availability:
+        products = products.filter(availability=availability)
+
+    # Filter by organic (TC-014)
+    if request.GET.get('organic') == 'true':
+        products = products.filter(is_organic=True)
+
+    # Low stock filter (TC-023)
+    if request.GET.get('low_stock') == 'true':
+        products = products.filter(stock_quantity__lt=10, stock_quantity__gt=0)
+
+    # Out of stock filter
+    if request.GET.get('out_of_stock') == 'true':
+        products = products.filter(stock_quantity=0)
+
+    # In season filter (TC-016)
+    if request.GET.get('in_season') == 'true':
+        current_month = timezone.now().month
+        products = products.filter(
+            Q(season_start__lte=current_month, season_end__gte=current_month) |
+            Q(availability='in_season')
+        )
+
+    # Search by name or description (TC-005)
+    search = request.GET.get('search')
+    if search:
+        products = products.filter(
+            Q(name__icontains=search) |
+            Q(description__icontains=search)
+        )
+
+    # Sorting
+    sort = request.GET.get('sort', '-created_at')  # Default: newest first
+    valid_sort_fields = [
+        'name', '-name',
+        'price', '-price',
+        'stock_quantity', '-stock_quantity',
+        'created_at', '-created_at',
+        'availability', '-availability'
+    ]
+    if sort in valid_sort_fields:
+        products = products.order_by(sort)
+
+    # Pagination
+    paginator = Paginator(products, 10)  # 10 products per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Prepare context
+    context = {
+        'page_obj': page_obj,
+        'products': page_obj,  # For backward compatibility
+        'producer': producer_profile,
+        'availability_choices': Product.AVAILABILITY_CHOICES,
+        'current_filters': request.GET.dict(),
+        'sort': sort,
+        'search': search,
+    }
+
+    return render(request, 'producers/management/myproduct.html', context)
+
+@login_required
+@producer_required
+def addproduct_view(request):
+    """
+    View for producers to add new products (TC-003)
+    """
+    producer_profile = request.user.producer_profile
+
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, producer=producer_profile)
+        if form.is_valid():
+            product = form.save()
+            messages.success(request, f'Product "{product.name}" has been successfully listed!')
+
+            # Check for low stock warning (TC-023)
+            if product.is_low_stock and product.is_available:
+                messages.warning(request, f'Note: "{product.name}" has low stock. Consider adding more inventory.')
+
+            return redirect('mainApp:producers:myproduct')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = ProductForm(producer=producer_profile)
+
+    # Get categories for reference
+    categories = ProductCategory.objects.filter(is_active=True)
+
+    context = {
+        'form': form,
+        'categories': categories,
+        'producer': producer_profile,
+        'is_edit': False,
+        'month_choices': Product.MONTH_CHOICES,
+        'availability_choices': Product.AVAILABILITY_CHOICES,
+    }
+
+    return render(request, 'producers/management/addproduct.html', context)
+
+@login_required
+@producer_required
+def product_edit_view(request, product_id):
+    producer_profile = request.user.producer_profile
+
+    # Get the product and verify ownership
+    product = get_object_or_404(
+        Product,
+        id=product_id,
+        producer=producer_profile  # This ensures the product belongs to this producer
+    )
+
+    if request.method == 'POST':
+        # Pass the existing product instance to the form
+        form = ProductForm(
+            request.POST,
+            request.FILES,  # For image uploads
+            instance=product,  # This tells Django to update existing product
+            producer=producer_profile
+        )
+
+        if form.is_valid():
+            updated_product = form.save()
+
+            # Check if stock changed and is now low (TC-023)
+            if updated_product.is_low_stock and product.is_available:
+                messages.warning(
+                    request,
+                    f'"{updated_product.name}" has low stock ({updated_product.stock_quantity} remaining).'
+                )
+
+            messages.success(request, f'"{updated_product.name}" has been updated successfully!')
+            return redirect('mainApp:producers:myproduct')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # GET request - populate form with existing product data
+        form = ProductForm(
+            instance=product,
+            producer=producer_profile
+        )
+
+    context = {
+        'form': form,
+        'product': product,  # Pass the product for template use
+        'producer': producer_profile,
+        'is_edit': True,  # Flag for template to adjust UI
+        'month_choices': Product.MONTH_CHOICES,
+        'availability_choices': Product.AVAILABILITY_CHOICES,
+    }
+
+    return render(request, 'producers/management/addproduct.html', context)  # Reuse the same template
+
+@login_required
+@producer_required
+def delete_product(request, product_id):
+    if request.method == 'POST':
+
+        product = get_object_or_404(Product, id=product_id)
+
+        if product.producer != request.user.producer_profile:
+            messages.error(request, "Permission denied.")
+            return redirect('mainApp:producers:myproduct')
+
+        product_name = product.name
+        product.delete()
+        messages.success(request, f'"{product_name}" deleted.')
+        return redirect('mainApp:producers:myproduct')
+
+    # return redirect('mainApp:producers:myproduct')
+    return redirect('mainApp:producers:edit_product', product_id=product_id)
+
+
+# =================
+# order management
+# =================
+
+@login_required
+@producer_required
+def incoming_orders_view(request):
+    """
+    Display all orders that contain items assigned to this producer.
+    Only shows this producer's items within each order.
+    """
+    producer_profile = request.user.producer_profile
+
+    if not producer_profile:
+        logger.warning(f"Producer profile missing for user {request.user.id}")
+        return redirect('mainApp:home')
+
+    # Get status filter from request
+    status_filter = request.GET.get('status', '')
+
+    # Get all OrderProducer records for this producer
+    producer_orders = OrderProducer.objects.filter(
+        producer=producer_profile,
+        payment__payment_status='paid',
+    ).select_related('payment', 'payment__user').order_by('-created_at')
+
+    #calculate statistics
+    stats = {
+        'total': producer_orders.count(),
+        'pending': producer_orders.filter(order_status='pending').count(),
+        'confirmed': producer_orders.filter(order_status='confirmed').count(),
+        'preparing': producer_orders.filter(order_status='preparing').count(),
+        'ready': producer_orders.filter(order_status='ready').count(),
+        'delivered': producer_orders.filter(order_status='delivered').count(),
+        'cancelled': producer_orders.filter(order_status='cancelled').count(),
+        # 'total_revenue': sum(
+        #     data['producer_subtotal'] for data in orders_data
+        #     if data['order'].order_status == 'delivered'
+        # ),
+    }
+
+    # Apply status filter if provided
+    if status_filter:
+        producer_orders = producer_orders.filter(order_status=status_filter)
+
+    # Build orders data with items and subtotals
+    orders_data = []
+    for producer_order in producer_orders:
+        # Get items for this producer order
+        order_items = OrderItem.objects.filter(
+            producer_order=producer_order
+        ).select_related('product')
+
+        # Calculate subtotal for this producer's items
+        producer_subtotal = sum(item.line_total for item in order_items)
+
+        orders_data.append({
+            'order': producer_order,
+            'items': order_items,
+            'producer_subtotal': producer_subtotal,
+            'order_payment': producer_order.payment,  # Access the main payment
+            'customer_name': producer_order.payment.user.get_full_name() or producer_order.payment.user.username,
+            'customer_email': producer_order.payment.user.email,
+            'delivery_date': producer_order.delivered_by,
+            'customer_note': producer_order.customer_note,
+        })
+
+    # Pagination
+    paginator = Paginator(orders_data, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    available_status_choices = OrderProducer.ORDER_STATUS_CHOICES
+
+    context = {
+        'page_obj': page_obj,
+        'producer': producer_profile,
+        'status_choices': available_status_choices,
+        'current_status': status_filter,
+        'stats': stats,
+    }
+
+    return render(request, 'producers/orders/incoming_orders.html', context)
+
+@login_required
+@producer_required
+def update_order_status(request, order_id):
+    """
+    Update the status of a producer's order (e.g., confirmed, preparing, ready)
+    """
+    producer_profile = request.user.producer_profile
+
+    # Get the producer order (ensure it belongs to this producer)
+    producer_order = get_object_or_404(
+        OrderProducer,
+        id=order_id,
+        producer=producer_profile
+    )
+
+    VALID_TRANSITIONS = {
+        'pending':   {'confirmed', 'cancelled'},
+        'confirmed': {'preparing', 'cancelled'},
+        'preparing': {'ready', 'cancelled'},
+        'ready':     {'delivered', 'cancelled'},
+        'delivered': set(),
+        # 'cancelled': set(),
+    }
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        current_status = producer_order.order_status
+        allowed = VALID_TRANSITIONS.get(current_status, set())
+
+        if new_status not in allowed:
+            messages.error(
+                request,
+                f"Cannot move order from '{producer_order.get_order_status_display()}' to '{new_status}'."
+            )
+            return redirect('mainApp:producers:incoming_orders')
+
+        producer_order.order_status = new_status
+        producer_order.save()
+
+        logger.info(f"Producer {producer_profile.id} updated order {order_id} to {new_status}")
+
+        try:
+            from mainApp.models import Notification
+            from django.urls import reverse
+            status_messages = {
+                'confirmed':  "has been confirmed and is being processed.",
+                'preparing':  "is now being prepared.",
+                'ready':      "is ready for pickup/delivery.",
+                'delivered':  "has been delivered. Enjoy!",
+                'cancelled':  "has been cancelled. Please contact us if you have questions.",
+            }
+            detail = status_messages.get(new_status, f"status has been updated to {producer_order.get_order_status_display()}.")
+            customer = producer_order.payment.user
+            Notification.objects.create(
+                user=customer,
+                notification_type=Notification.TYPE_ORDER,
+                title="Order Update",
+                message=f"Your order from {producer_profile.business_name} {detail}",
+                link=reverse('mainApp:orders:order_history'),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create customer notification: {e}")
+
+    return redirect('mainApp:producers:incoming_orders')
+
+
+@login_required
+@producer_required
+def order_detail(request, order_id):
+    """
+    View detailed information for a specific producer order
+    not in use
+    """
+    producer_profile = request.user.producer_profile
+    print(producer_profile)
+
+    producer_order = get_object_or_404(
+        OrderProducer,
+        id=order_id,
+        producer=producer_profile
+    )
+    print(producer_order)
+
+    # Get all items for this order
+    order_items = OrderItem.objects.filter(
+        producer_order=producer_order
+    ).select_related('product')
+
+    # Calculate subtotal
+    producer_subtotal = sum(item.line_total for item in order_items)
+
+    # exclude pending
+    available_status_choices = [
+        choice for choice in OrderProducer.ORDER_STATUS_CHOICES
+            if choice[0] not in ('pending', 'cancelled')
+    ]
+
+    context = {
+        'producer_order': producer_order,
+        'order_payment': producer_order.payment,
+        'items': order_items,
+        'producer_subtotal': producer_subtotal,
+        'status_choices': available_status_choices,
+    }
+
+    return render(request, 'producers/orders/details/order_details.html', context)
+
+
+# =================
+# quality scan (adv_ai/task2)
+# =================
+
+@login_required
+@producer_required
+def quality_scan_view(request):
+    """
+    AI quality scan page. GET renders the upload/camera UI.
+    POST accepts an image, runs the Keras model, and returns a JSON score breakdown.
+    """
+    if request.method == 'POST':
+        image = request.FILES.get('image')
+        if not image:
+            return JsonResponse({'success': False, 'error': 'No image provided.'}, status=400)
+
+        try:
+            from ml.predictor import predict
+            from interactions.utils import log_interaction
+            from interactions.models import UserInteraction
+            prediction = predict(image)
+            log_interaction(request, UserInteraction.QUALITY_SCAN, metadata={
+                'overall_score': prediction.get('overall_score'),
+                'grade': prediction.get('grade'),
+                'breakdown': prediction.get('breakdown'),
+                'labels': prediction.get('labels'),
+            })
+            return JsonResponse({'success': True, **prediction})
+
+        except FileNotFoundError as e:
+            return JsonResponse({'success': False, 'error': f'Model file missing: {e}'}, status=500)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Prediction failed: {e}'}, status=500)
+
+    return render(request, 'producers/quality_scan.html')
+
+
+# =================
+# account management
+# =================
+
+@login_required
+@producer_required
+def personal_info_view(request):
+    """Producer personal information management"""
+    user = request.user
+
+    # ====== DELETE ACCOUNT HANDLER ============
+    if request.method == "POST" and "delete_account" in request.POST:
+        user.soft_delete()
+        logout(request)
+        messages.success(request, "Your account has been deleted successfully. We're sorry to see you go!")
+        return redirect("mainApp:home")
+
+    # GET OR CREATE PRODUCER PROFILE
+    try:
+        profile = ProducerProfile.objects.get(user=user)
+    except ProducerProfile.DoesNotExist:
+        # this should never happen
+        print('profile does not exist')
+        logger.info(f"Creating missing profile for user {user.username}")
+        profile = ProducerProfile.objects.create(user=user)
+        messages.info(request, "Producer profile was created. Please complete your farm details.")
+
+    # GET ADDRESSES
+    all_addresses = user.addresses.all().order_by('-is_default', '-created_at')
+
+    # default address for producer is always farm type.
+    default_address = all_addresses.filter(is_default=True).first()
+    if not default_address:
+        # Try to get any address
+        default_address = all_addresses.first()
+
+    # Get other addresses
+    other_addresses = all_addresses.exclude(id=default_address.id)
+
+    # PROCESS FORM
+    if request.method == "POST":
+        form = ProducerPersonalInfoForm(request.POST, user=user)
+
+        if form.is_valid():
+            try:
+                user = form.save()
+
+                # Handle session after password change
+                if form.cleaned_data.get('password1'):
+                    update_session_auth_hash(request, user)
+                    messages.success(request, "Password updated successfully!")
+
+                messages.success(request, "Your information has been updated successfully!")
+                return redirect("mainApp:producers:personal_info")
+
+            except Exception as e:
+                logger.error(f"Error updating producer info: {e}", exc_info=True)
+                messages.error(request, "An error occurred while updating your information. Please try again.")
+        else:
+            # Display form errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    if field == '__all__':
+                        messages.error(request, error)
+                    else:
+                        field_label = field.replace('_', ' ').title()
+                        messages.error(request, f"{field_label}: {error}")
+
+    else:
+        # GET request - populate initial data for form
+        initial_data = {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone_number": user.phone_number,
+            "business_name": profile.business_name if profile else '',
+        }
+
+        form = ProducerPersonalInfoForm(user=user, initial=initial_data)
+
+    context = {
+        'form': form,
+        'user': user,
+        'profile': profile,
+        # 'all_addresses': all_addresses,
+        'default_address': default_address,
+        'other_addresses': other_addresses,
+    }
+
+    return render(request, "profile/manage/personal_info.html", context)
+
+
+
+@login_required
+def producer_profile_view(request):
+    """
+    Producer dashboard: order history + stats
+    """
+    producer_profile = request.user.producer_profile
+    # fetch latest order made by the user (NOT INCOMING ORDERS)
+    latest_order = OrderPayment.objects.filter(
+        user=request.user,
+        payment_status='paid'
+    ).order_by('-created_at').first()
+
+    # stats card------------
+    orderThisMonth = producer_profile.total_order_this_month
+    total_orders_count = producer_profile.total_active_orders
+    unique_customer = producer_profile.unique_customer_reached
+    active_products = producer_profile.products_active_and_available
+
+    stats_card = {
+        'ordersThisMonth': orderThisMonth,
+        'unfinishedOrders': total_orders_count,
+        'uniqueCustomers': unique_customer,
+        'activeProducts': active_products,
+    }
+
+    # build data for latest order made by the user.
+    order_data = None
+    if latest_order:
+        # Build comprehensive order data
+        order_data = {
+            'order': latest_order,
+            'total_amount': latest_order.total_amount,
+            'created_at': latest_order.created_at,
+            'payment_status': latest_order.payment_status,
+            'shipping_address': latest_order.shipping_address,
+            'global_notes': latest_order.global_delivery_notes,
+            'producers': []
+        }
+
+        # Get all producer orders for this payment
+        producer_orders = latest_order.producer_orders.select_related(
+            'producer'
+        ).prefetch_related(
+            'order_items__product'
+        ).all()
+
+        for producer_order in producer_orders:
+            producer_data = {
+                'producer': producer_order.producer,
+                'business_name': producer_order.producer.business_name if producer_order.producer else 'Unknown',
+                'status': producer_order.get_order_status_display(),
+                'subtotal': producer_order.producer_subtotal,
+                'delivery_date': producer_order.delivered_by,
+                'customer_note': producer_order.customer_note,
+                'items': []
+            }
+
+            # Get items for this producer order
+            for item in producer_order.order_items.all():
+                producer_data['items'].append({
+                    'id': item.id,
+                    'product_id': item.product.id if item.product else None,
+                    'name': item.product_name,
+                    'quantity': item.quantity,
+                    'price': item.product_price,
+                    'line_total': item.line_total,
+                    'unit': item.unit
+                })
+
+            order_data['producers'].append(producer_data)
+
+    context = {
+        'stats': stats_card,
+        'latest_order': latest_order,
+        'order_data': order_data,
+        'user_role': 'producer'
+    }
+
+    return render(request, "profile/profile_page.html", context)
+
+
+# =============================================================================
+# TC-019 — Surplus / Last-Minute Deals
+# =============================================================================
+
+@login_required
+@producer_required
+def mark_surplus(request, product_id):
+    """Mark a product as a surplus deal or update an existing one."""
+
+    producer_profile = request.user.producer_profile
+    product = get_object_or_404(Product, id=product_id, producer=producer_profile)
+
+    existing = getattr(product, 'surplus_deal', None)
+
+    if request.method == 'POST':
+        form = SurplusDealForm(request.POST, instance=existing, product=product)
+
+        if form.is_valid():
+            surplus = form.save(commit=False)
+            surplus.product = product
+            surplus.producer = producer_profile
+
+            # Handle expires_at - only recalculate if user changed the expiry
+            hours = int(request.POST.get('expires_hours', 48))
+            if existing:
+                # Check if user changed the expiry
+                remaining = (existing.expires_at - tz.now()).total_seconds() / 3600
+                if abs(remaining - hours) < 1:
+                    # User didn't change expiry, keep original
+                    surplus.expires_at = existing.expires_at
+                else:
+                    # User changed expiry
+                    surplus.expires_at = tz.now() + timedelta(hours=hours)
+            else:
+                surplus.expires_at = tz.now() + timedelta(hours=hours)
+
+            surplus.is_active = True
+            surplus.full_clean()  # Explicit validation
+            surplus.save()
+
+            if existing:
+                messages.success(request, f'"{product.name}" surplus deal updated.')
+            else:
+                messages.success(request, f'"{product.name}" marked as surplus deal.')
+
+            return redirect('mainApp:producers:myproduct')
+        else:
+            # Form invalid - re-render with errors
+            context = {'product': product, 'existing': existing, 'form': form}
+            return render(request, 'producers/surplus/mark_surplus.html', context)
+
+    # GET request - prepare form with initial data
+    initial = {}
+    if existing:
+        # Calculate remaining hours for existing deal
+        remaining_hours = max(1, int((existing.expires_at - tz.now()).total_seconds() / 3600))
+        initial = {'expires_hours': remaining_hours}
+
+    form = SurplusDealForm(instance=existing, product=product, initial=initial)
+
+    context = {
+        'product': product,
+        'existing': existing,
+        'form': form,
+    }
+    return render(request, 'producers/surplus/mark_surplus.html', context)
+
+
+@login_required
+@producer_required
+def remove_surplus(request, product_id):
+    """Remove surplus deal status from a product."""
+    from products.models import SurplusDeal, Product
+
+    producer_profile = request.user.producer_profile
+    product = get_object_or_404(Product, id=product_id, producer=producer_profile)
+    deal = getattr(product, 'surplus_deal', None)
+    if deal:
+        deal.is_active = False
+        deal.save(update_fields=['is_active'])
+        messages.success(request, f'Surplus deal removed from "{product.name}".')
+    return redirect('mainApp:producers:myproduct')
+
+
+# =============================================================================
+# TC-020 — Recipes & Farm Stories
+# =============================================================================
+
+@login_required
+@producer_required
+def content_dashboard(request):
+    """Producer content management: recipes and farm stories."""
+    from producers.models import Recipe, FarmStory
+
+    producer_profile = request.user.producer_profile
+    recipes = Recipe.objects.filter(producer=producer_profile).order_by('-created_at')
+    stories = FarmStory.objects.filter(producer=producer_profile).order_by('-created_at')
+
+    context = {
+        'recipes': recipes,
+        'stories': stories,
+        'producer': producer_profile,
+    }
+    return render(request, 'producers/content/dashboard.html', context)
+
+
+@login_required
+@producer_required
+def add_recipe(request):
+    """Create a new recipe."""
+    producer_profile = request.user.producer_profile
+    if request.method == 'POST':
+        form = RecipeForm(request.POST, request.FILES, producer=producer_profile)
+        if form.is_valid():
+            recipe = form.save()
+            messages.success(request, f'Recipe "{recipe.title}" submitted for review.')
+            return redirect('mainApp:producers:content')
+
+        else:
+            return render(request, 'producers/content/add_recipe.html', {
+                'producer': producer_profile,
+                'form': form,
+            })
+    else:
+        form = RecipeForm(producer=producer_profile)
+
+    return render(request, 'producers/content/add_recipe.html', {
+        'producer': producer_profile,
+        'form': form,
+    })
+
+
+@login_required
+@producer_required
+def edit_recipe(request, recipe_id):
+    """Edit an existing recipe."""
+    producer_profile = request.user.producer_profile
+    recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
+
+    if request.method == 'POST':
+        form = RecipeForm(request.POST, request.FILES, instance=recipe, producer=producer_profile)
+
+        if form.is_valid():
+            recipe = form.save(commit=False)
+            if form.has_changed():  # Only if actual changes
+                recipe.moderation_status = 'pending' # admin needs to re-approve new changes
+                recipe.is_published = False # unpublished as needs approval from platform admin again
+                recipe.full_clean()
+                recipe.save()
+
+                messages.success(request, f'Recipe "{recipe.title}" updated and submitted for review.')
+                return redirect('mainApp:producers:content')
+            else:
+                return redirect('mainApp:producers:content')
+
+        else:
+            return render(request, 'producers/content/add_recipe.html', {
+                'producer': producer_profile,
+                'form': form,
+                'recipe': recipe,
+                'is_edit': True,
+            })
+    else:
+        form = RecipeForm(instance=recipe, producer=producer_profile)
+
+    return render(request, 'producers/content/add_recipe.html', {
+        'producer': producer_profile,
+        'form': form,
+        'recipe': recipe,
+        'is_edit': True,
+    })
+
+
+@login_required
+@producer_required
+def delete_recipe(request, recipe_id):
+    """Delete a recipe."""
+    producer_profile = request.user.producer_profile
+    recipe = get_object_or_404(Recipe, id=recipe_id, producer=producer_profile)
+    if request.method == 'POST':
+        name = recipe.title
+        recipe.delete()
+        messages.success(request, f'Recipe "{name}" deleted.')
+    return redirect('mainApp:producers:content')
+
+
+@login_required
+@producer_required
+def add_farm_story(request):
+    """Create a new farm story."""
+    producer_profile = request.user.producer_profile
+
+    if request.method == 'POST':
+        form = FarmStoryForm(request.POST, producer=producer_profile)
+        new_images = request.FILES.getlist('images')
+
+        if form.is_valid():
+            story = form.save()
+            for image in new_images:
+                FarmStoryImage.objects.create(story=story, image=image)
+            messages.success(request, f'Farm story "{story.title}" submitted for review.')
+            return redirect('mainApp:producers:content')
+        else:
+            return render(request, 'producers/content/add_farm_story.html', {
+                'producer': producer_profile,
+                'form': form,
+            })
+    else:
+        form = FarmStoryForm(producer=producer_profile)
+
+    return render(request, 'producers/content/add_farm_story.html', {
+        'producer': producer_profile,
+        'form': form,
+    })
+
+
+@login_required
+@producer_required
+def edit_farm_story(request, story_id):
+    """Edit an existing farm story."""
+    producer_profile = request.user.producer_profile
+    story = get_object_or_404(FarmStory, id=story_id, producer=producer_profile)
+
+    if request.method == 'POST':
+        form = FarmStoryForm(request.POST, instance=story, producer=producer_profile)
+        new_images = request.FILES.getlist('images')
+        has_changes = form.has_changed() or bool(new_images)
+
+        if form.is_valid():
+            story = form.save(commit=False)
+
+            if has_changes:
+                story.moderation_status = 'pending'
+                story.is_published = False
+                story.full_clean()
+                story.save()
+                for image in new_images:
+                    FarmStoryImage.objects.create(story=story, image=image)
+
+                messages.success(request, f'Farm story "{story.title}" updated and submitted for review.')
+                return redirect('mainApp:producers:content')
+
+            else:
+                return redirect('mainApp:producers:content')
+        else:
+            return render(request, 'producers/content/add_farm_story.html', {
+                'producer': producer_profile,
+                'form': form,
+                'story': story,
+                'is_edit': True,
+            })
+    else:
+        form = FarmStoryForm(instance=story, producer=producer_profile)
+
+    return render(request, 'producers/content/add_farm_story.html', {
+        'producer': producer_profile,
+        'form': form,
+        'story': story,
+        'is_edit': True,
+    })
+
+
+@login_required
+@producer_required
+def delete_farm_story(request, story_id):
+    """Delete a farm story."""
+    producer_profile = request.user.producer_profile
+    story = get_object_or_404(FarmStory, id=story_id, producer=producer_profile)
+    if request.method == 'POST':
+        name = story.title
+        story.delete()
+        messages.success(request, f'Farm story "{name}" deleted.')
+    return redirect('mainApp:producers:content')

@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Marketplace{% endblock %}
+
+{% csrf_token %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'products/products.css' %}">
+    <style>
+        .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 2rem; padding: 1rem 0; }
+        .pagination-bar a { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; font-size: 0.875rem; font-weight: 500; text-decoration: none; color: var(--color-primary); border: 1px solid var(--color-border); background: var(--color-surface); transition: all 0.15s; }
+        .pagination-bar a:hover { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+        .pagination-bar span.pagination-info { padding: 0.5rem 0.875rem; font-size: 0.875rem; color: var(--color-muted); }
+
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+
+        .main-search-form { position: relative; flex: 1; }
+        .clear-search-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--color-muted);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .clear-search-btn:hover { color: var(--color-text); }
+
+        .btn-add-cart { position: relative; }
+        .btn-add-cart.loading { opacity: 0.6; pointer-events: none; }
+        .btn-add-cart.loading::after { content: ""; position: absolute; top: 50%; left: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .unavailable-notice {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #f3f4f6;
+            color: #6b7280;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        [data-theme="dark"] .unavailable-notice {
+            background: #374151;
+            color: #9ca3af;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="products-header">
+    <h1><i class="bi bi-basket2"></i> Marketplace</h1>
+    <p>Fresh, local produce from Bristol-area producers</p>
+</div>
+
+<!-- Personalized Recommendations -->
+{% if user.is_authenticated and has_recommendations %}
+<div class="recommendations-section">
+    <div class="recommendations-header">
+        <div class="recommendations-header-content">
+            <!-- <i class="bi bi-stars text-warning"></i> -->
+            <div class="recommendations-title-wrapper">
+                <strong class="recommendations-title">Personalised for You</strong>
+                <span class="recommendations-subtitle">based on your recent purchase patterns, you may like...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="recommendations-scroll">
+        {% for rec in recommended_products %}
+        <a href="{% url 'mainApp:products:product_detail' rec.product.id %}" class="recommendation-card">
+            <div class="recommendation-card-image">
+                {% if rec.product.image_url %}
+                    <img src="{{ rec.product.image_url }}" alt="{{ rec.product.name }}" loading="lazy">
+                {% else %}
+                    <div class="recommendation-card-placeholder">
+                        <i class="bi bi-image"></i>
+                    </div>
+                {% endif %}
+                <div class="recommendation-match-badge">{{ rec.confidence }}</div>
+            </div>
+            <div class="recommendation-card-body">
+                <div class="recommendation-name">{{ rec.product.name|truncatechars:40 }}</div>
+                <div class="recommendation-price">£{{ rec.product.price|floatformat:2 }}</div>
+                {% if rec.product.producer %}
+                <div class="recommendation-producer">
+                    <i class="bi bi-building"></i> {{ rec.product.producer.business_name|truncatechars:25 }}
+                </div>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Two-column layout: sidebar + main -->
+<div class="marketplace-layout" x-data="{ sidebarOpen: false }">
+
+    <!-- Sidebar filters -->
+    <aside class="marketplace-sidebar" :class="{ 'sidebar-open': sidebarOpen }">
+        <div class="sidebar-header">
+            <span class="sidebar-title"><i class="bi bi-funnel"></i> Filters</span>
+            <button class="sidebar-close" @click="sidebarOpen = false" aria-label="Close filters">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <!-- Category filter -->
+        <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Category</h3>
+            <div class="sidebar-cat-links">
+                <a href="{% url 'mainApp:products:product_list' %}{% if search_query %}?q={{ search_query }}{% endif %}"
+                   class="sidebar-cat-link {% if not current_categories %}active{% endif %}">
+                    <i class="bi bi-grid-3x3-gap"></i> All Products
+                </a>
+                {% for category in categories %}
+                <a href="?category={{ category.id }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                   class="sidebar-cat-link {% if category.id|stringformat:'s' in current_categories|default:'' %}active{% endif %}">
+                    <i class="bi bi-tag"></i> {{ category.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Organic filter -->
+        <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Attributes</h3>
+            <label class="sidebar-checkbox">
+                <input type="checkbox" id="organic-filter" {% if request.GET.organic == 'true' %}checked{% endif %} onchange="applyFilter('organic', this.checked)">
+                <span><i class="bi bi-leaf text-success"></i> Organic only</span>
+            </label>
+            <label class="sidebar-checkbox">
+                <input type="checkbox" id="season-filter" {% if request.GET.in_season == 'true' %}checked{% endif %} onchange="applyFilter('in_season', this.checked)">
+                <span><i class="bi bi-flower2 text-warning"></i> In Season</span>
+            </label>
+        </div>
+
+        <!-- TC-015: Allergen filter -->
+        <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Allergens</h3>
+            <label class="sidebar-checkbox">
+                <input type="checkbox" id="free-from-filter" {% if free_from_filter %}checked{% endif %} onchange="applyFilter('free_from', this.checked)">
+                <span><i class="bi bi-shield-check text-success"></i> Allergen-free only</span>
+            </label>
+            {% if allergens %}
+            <div style="margin-top:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:0.3rem;">Exclude allergen:</label>
+                <select id="allergen-select" onchange="applyAllergenFilter(this.value)" style="width:100%;font-size:0.8rem;padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);color:var(--color-text);">
+                    <option value="">— None —</option>
+                    {% for allergen in allergens %}
+                    <option value="{{ allergen.name }}" {% if active_allergen_filter == allergen.name %}selected{% endif %}>{{ allergen.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div class="sidebar-overlay" x-show="sidebarOpen" @click="sidebarOpen = false" style="display:none;"></div>
+
+    <!-- Main content -->
+    <main class="marketplace-main">
+
+        <!-- Top bar: mobile filter btn + search + sort -->
+        <div class="marketplace-topbar">
+            <button class="mobile-filter-btn" @click="sidebarOpen = true">
+                <i class="bi bi-funnel"></i> Filters
+            </button>
+
+            <form method="get" action="{% url 'mainApp:products:product_list' %}" class="main-search-form" id="product-search-form">
+                <i class="bi bi-search"></i>
+                <input type="text"
+                    name="q"
+                    id="product-search-input"
+                    placeholder="Search products…"
+                    value="{{ search_query }}"
+                    autocomplete="off">
+                {% if current_category %}
+                    <input type="hidden" name="category" value="{{ current_category }}">
+                {% endif %}
+                {% if search_query %}
+                <button type="button" class="clear-search-btn" onclick="clearSearch()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Results info -->
+        <div class="marketplace-results-bar">
+            <span class="results-count">
+                {% if search_query %}
+                    Results for <strong>"{{ search_query }}"</strong> &mdash;
+                <strong>{{ product_found|length }}</strong> product{{ products|length|pluralize }} found
+                {% endif %}
+            </span>
+        </div>
+
+        <!-- Product grid -->
+        <div class="product-grid">
+            {% for product in products %}
+            <div class="product-card">
+
+                <!-- Image -->
+                <div class="product-card-image">
+                    {% if product.image_url %}
+                        <img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy">
+                    {% else %}
+                        <div class="no-image">
+                            <i class="bi bi-image"></i>
+                        </div>
+                    {% endif %}
+
+                    <!-- Floating badges -->
+                    <div class="product-badges">
+                        {% if product.is_organic %}
+                            <span class="badge-organic"><i class="bi bi-leaf"></i> Organic</span>
+                        {% endif %}
+                        {% if product.is_in_season %}
+                            <span class="badge-in-season"><i class="bi bi-flower2"></i> In Season</span>
+                        {% endif %}
+                        {% with deal=product.surplus_deal %}
+                        {% if deal and deal.is_active and deal.expires_at > now %}
+                            <span class="badge-organic" style="background:#ff6b00;color:#fff;"><i class="bi bi-tag-fill"></i> {{ deal.discount_percent }}% OFF</span>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+
+                    <!-- Availability status -->
+                    <div class="product-avail-badge">
+                        <span class="badge-status
+                            {% if product.availability == 'available' %}available
+                            {% elif product.availability == 'in_season' %}in-season
+                            {% else %}unavailable{% endif %}">
+                            {{ product.get_availability_display }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="product-card-body">
+                    {% if product.category %}
+                        <div class="product-category">{{ product.category.name }}</div>
+                    {% endif %}
+                    <h3><a href="{% url 'mainApp:products:product_detail' product.id %}">{{ product.name }}</a></h3>
+
+                    {% if product.producer %}
+                        <a href="{% url 'mainApp:products:producer_stories' product.producer.id %}"
+                           class="product-producer" style="text-decoration:none;" onclick="event.stopPropagation();">
+                            <i class="bi bi-shop"></i> {{ product.producer.business_name }}
+                        </a>
+                    {% endif %}
+
+                    {% with deal=product.surplus_deal %}
+                    {% if deal and deal.is_active and deal.expires_at > now %}
+                    <div class="product-price">
+                        <span style="text-decoration:line-through;color:#9ca3af;font-size:0.85em;">£{{ product.price }}</span>
+                        <strong style="color:#dc2626;">£{{ deal.discounted_price }}</strong>
+                        <span>per {{ product.unit }}</span>
+                    </div>
+                    {% else %}
+                    <div class="product-price">
+                        £{{ product.price }} <span>per {{ product.unit }}</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+
+                    <div class="product-stock {% if product.is_low_stock %}low{% endif %}">
+                        <i class="bi bi-box-seam"></i>
+                        {% if product.is_low_stock %}
+                            Only {{ product.stock_quantity }} left!
+                        {% else %}
+                            {{ product.stock_quantity }} in stock
+                        {% endif %}
+                    </div>
+                </div>
+
+<!-- Action -->
+                <div class="product-card-footer">
+                    {% if user.is_authenticated %}
+                        {% if product.availability == 'available' %}
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <input type="number" name="quantity" value="1" min="1" max="{{ product.stock_quantity }}"
+                                   class="quantity-input"
+                                   style="width:60px;padding:0.4rem 0.5rem;border:1.5px solid var(--color-border);border-radius:6px;font-size:0.875rem;text-align:center;">
+                            <button type="button" class="btn-add-cart add-to-cart-btn" data-add-url="{% url 'mainApp:customers:add_to_cart' product.id %}" style="flex:1;">
+                                <i class="bi bi-cart-plus"></i> Add
+                            </button>
+                        </div>
+                        {% else %}
+                        <div class="unavailable-notice">
+                            <i class="bi bi-x-circle"></i> Unavailable
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <a href="{% url 'mainApp:customers:login' %}?next={% url 'mainApp:products:product_list' %}"
+                           class="btn-login-prompt">
+                            <i class="bi bi-box-arrow-in-right"></i> Log in to buy
+                        </a>
+                    {% endif %}
+                </div>
+
+            </div>
+            {% empty %}
+                <div class="products-empty">
+                    <i class="bi bi-basket"></i>
+                    <p>No products found. Try a different search or category.</p>
+                    <a href="{% url 'mainApp:products:product_list' %}" class="btn-primary" style="margin-top:1rem;">
+                        Clear filters
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-bar">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if current_categories %}&category={{ current_categories }}{% endif %}{% if request.GET.organic %}&organic=true{% endif %}{% if request.GET.in_season %}&in_season=true{% endif %}">&laquo; First</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_categories %}&category={{ current_categories }}{% endif %}{% if request.GET.organic %}&organic=true{% endif %}{% if request.GET.in_season %}&in_season=true{% endif %}">Previous</a>
+            {% endif %}
+
+            <span class="pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_categories %}&category={{ current_categories }}{% endif %}{% if request.GET.organic %}&organic=true{% endif %}{% if request.GET.in_season %}&in_season=true{% endif %}">Next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_categories %}&category={{ current_categories }}{% endif %}{% if request.GET.organic %}&organic=true{% endif %}{% if request.GET.in_season %}&in_season=true{% endif %}">Last &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </main>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var input = document.getElementById('product-search-input');
+    if (!input) return;
+    var timer;
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { input.form.submit(); }, 1000);
+    });
+})();
+
+function applyFilter(name, value) {
+    var url = new URL(window.location.href);
+    if (value) {
+        url.searchParams.set(name, 'true');
+    } else {
+        url.searchParams.delete(name);
+    }
+    window.location.href = url.toString();
+}
+
+function applyAllergenFilter(value) {
+    var url = new URL(window.location.href);
+    if (value) {
+        url.searchParams.set('allergen', value);
+    } else {
+        url.searchParams.delete('allergen');
+    }
+    window.location.href = url.toString();
+}
+
+function clearSearch() {
+    var input = document.getElementById('product-search-input');
+    input.value = '';
+    document.getElementById('product-search-form').submit();
+}
+
+// Restore checkbox state from URL params
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var organicCb = document.getElementById('organic-filter');
+    var seasonCb = document.getElementById('season-filter');
+    if (organicCb && params.get('organic') === 'true') organicCb.checked = true;
+    if (seasonCb && params.get('in_season') === 'true') seasonCb.checked = true;
+})();
+
+// Toast notification system
+function showToast(message, type) {
+    var container = document.querySelector('.toast-container');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    var toast = document.createElement('div');
+    toast.style.padding = '16px 26px';
+    toast.style.borderRadius = '10px';
+    toast.style.fontSize = '18px';
+    toast.style.fontWeight = '500';
+    toast.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.gap = '10px';
+    toast.style.minWidth = '325px';
+    toast.style.marginBottom = '8px';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    
+    if (type === 'success') {
+        toast.style.background = '#22c55e';
+        toast.style.color = 'white';
+    } else if (type === 'warning') {
+        toast.style.background = '#f59e0b';
+        toast.style.color = 'white';
+    } else {
+        toast.style.background = '#ef4444';
+        toast.style.color = 'white';
+    }
+    
+    toast.innerHTML = '<span>' + message + '</span>';
+    
+    container.appendChild(toast);
+
+    // Fade in animation
+    requestAnimationFrame(function() {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    });
+
+    // Fade out after 3 seconds
+    setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
+}
+
+// AJAX add to cart
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.add-to-cart-btn');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    var addUrl = btn.dataset.addUrl;
+    var container = btn.closest('.product-card-footer');
+    var quantityInput = container.querySelector('.quantity-input');
+    var quantity = quantityInput ? parseInt(quantityInput.value) || 1 : 1;
+
+    btn.classList.add('loading');
+
+    var csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfToken) {
+        csrfToken = document.querySelector('meta[name="csrf-token"]');
+    }
+    var csrf = csrfToken ? csrfToken.value : '';
+
+    fetch(addUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrf
+        },
+        body: 'quantity=' + quantity
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        btn.classList.remove('loading');
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            if (data.cart_count !== undefined) {
+                var badge = document.querySelector('.fd-cart-badge');
+                if (badge) {
+                    badge.textContent = data.cart_count;
+                } else if (data.cart_count > 0) {
+                    var cartLink = document.querySelector('a[href*="view_cart"]');
+                    if (cartLink) {
+                        var newBadge = document.createElement('span');
+                        newBadge.className = 'fd-cart-badge';
+                        newBadge.textContent = data.cart_count;
+                        cartLink.appendChild(newBadge);
+                    }
+                }
+            }
+        } else {
+            showToast(data.error || 'Failed to add to cart', 'error');
+        }
+
+        if (data.warning) {
+            showToast(data.warning, 'warning');
+        }
+    })
+    .catch(function(error) {
+        btn.classList.remove('loading');
+        showToast('Failed to add to cart. Please try again.', 'error');
+    });
+});
+</script>
+{% endblock %}

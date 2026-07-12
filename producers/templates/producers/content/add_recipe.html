@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Recipe — Bristol Regional Food Network{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <a href="{% url 'mainApp:producers:content' %}" class="text-sm text-green-600 hover:underline">&larr; Back to content</a>
+
+  <div class="mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-5">
+      {% if is_edit %}Edit Recipe: {{ recipe.title }}{% else %}Add New Recipe{% endif %}
+    </h1>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+      {% for message in messages %}
+      <div class="p-3 rounded-lg text-sm
+        {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.title.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.description.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Ingredients * <span class="text-gray-400 font-normal">(one per line)</span></label>
+        {{ form.ingredients }}
+        {% if form.ingredients.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.ingredients.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Instructions *</label>
+        {{ form.instructions }}
+        {% if form.instructions.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.instructions.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Seasons</label>
+        <div class="border border-gray-200 rounded-lg p-3 space-y-2">
+          {% for choice in form.seasons %}
+          <label class="flex items-center gap-2 text-sm">
+            {{ choice.tag }}
+            {{ choice.choice_label }}
+          </label>
+          {% empty %}
+          <p class="text-xs text-gray-400">No seasons available.</p>
+          {% endfor %}
+        </div>
+        {% if form.seasons.help_text %}
+        <p class="text-xs text-gray-400 mt-1">{{ form.seasons.help_text }}</p>
+        {% endif %}
+        {% if form.seasons.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.seasons.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Recipe Image</label>
+        {{ form.image }}
+        {% if form.image.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.image.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Link to Your Products</label>
+        <div class="border border-gray-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1">
+          {% for choice in form.linked_products %}
+          <label class="flex items-center gap-2 text-sm">
+            {{ choice.tag }}
+            {{ choice.choice_label }}
+          </label>
+          {% empty %}
+          <p class="text-xs text-gray-400">No active products found.</p>
+          {% endfor %}
+        </div>
+        {% if form.linked_products.help_text %}
+        <p class="text-xs text-gray-400 mt-1">{{ form.linked_products.help_text }}</p>
+        {% endif %}
+        {% if form.linked_products.errors %}
+        <p class="text-xs text-red-600 mt-1">{{ form.linked_products.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <button type="submit"
+        class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-sm transition-colors">
+        {% if is_edit %}Save Changes{% else %}Submit for Review{% endif %}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

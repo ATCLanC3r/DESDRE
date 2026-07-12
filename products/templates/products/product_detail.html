@@ -1,0 +1,509 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load product_extras %}
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'products/product_detail.css' %}">
+    <style>
+        .recipe-suggestions { margin-top: 1.5rem; }
+
+        .recipe-suggestions-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .recipe-suggestions-title {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin: 0;
+        }
+        .recipe-suggestions-title i { color: var(--color-primary); }
+        .recipe-suggestions-link {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .recipe-suggestions-link:hover { text-decoration: underline; }
+
+        .recipe-suggestions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .recipe-suggestion-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.18s, transform 0.18s;
+        }
+        .recipe-suggestion-card:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+            transform: translateY(-2px);
+        }
+
+        .recipe-suggestion-img {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: linear-gradient(135deg, var(--color-primary-light), #fef9c3);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .recipe-suggestion-img img { width:100%; height:100%; object-fit:cover; display:block; }
+        .recipe-suggestion-placeholder {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; opacity: 0.3; color: var(--color-primary);
+        }
+
+        .recipe-suggestion-tags {
+            position: absolute; top: 0.5rem; left: 0.5rem;
+            display: flex; flex-wrap: wrap; gap: 0.25rem;
+        }
+        .rs-tag {
+            font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; padding: 2px 6px; border-radius: 99px;
+            background: rgba(0,0,0,0.45); color: white; backdrop-filter: blur(4px);
+        }
+        .rs-tag-spring { background: rgba(34,197,94,0.75); }
+        .rs-tag-summer { background: rgba(234,179,8,0.8); }
+        .rs-tag-autumn { background: rgba(234,88,12,0.75); }
+        .rs-tag-winter { background: rgba(59,130,246,0.75); }
+
+        .recipe-suggestion-body {
+            padding: 0.75rem 0.875rem 0.875rem;
+            display: flex; flex-direction: column; gap: 0.2rem; flex: 1;
+        }
+        .recipe-suggestion-name {
+            font-size: 0.875rem; font-weight: 700; color: var(--color-text);
+            line-height: 1.35; margin: 0;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .recipe-suggestion-producer {
+            font-size: 0.75rem; color: var(--color-primary);
+            font-weight: 500; display: flex; align-items: center; gap: 0.25rem; margin: 0;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-wrapper">
+
+    <!-- Breadcrumb -->
+    <nav class="detail-breadcrumb" aria-label="breadcrumb">
+        <a href="{% url 'mainApp:home' %}"><i class="bi bi-house"></i> Home</a>
+        <span class="bc-sep"><i class="bi bi-chevron-right"></i></span>
+        <a href="{% url 'mainApp:products:product_list' %}">Marketplace</a>
+        <span class="bc-sep"><i class="bi bi-chevron-right"></i></span>
+        <span class="bc-current">{{ product.name }}</span>
+    </nav>
+
+    <!-- Two-column layout -->
+    <div class="detail-card">
+
+        <!-- Left: image -->
+        <div class="detail-image">
+            {% if product.image_url %}
+                <img src="{{ product.image_url }}" alt="{{ product.name }}">
+            {% else %}
+                <div class="no-image">
+                    <i class="bi bi-image"></i>
+                    <span>No image available</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Right: info -->
+        <div class="detail-info">
+
+            <!-- Badges row -->
+            <div class="detail-badges">
+                {% if product.is_organic %}
+                    <span class="badge-organic"><i class="bi bi-leaf"></i> Organic</span>
+                {% endif %}
+                {% if product.is_in_season %}
+                    <span class="badge-seasonal"><i class="bi bi-flower2"></i> In Season</span>
+                {% endif %}
+                <span class="badge-availability
+                    {% if product.availability == 'in_season' %}in-season
+                    {% elif product.availability == 'available' %}available
+                    {% elif product.availability == 'unavailable' %}unavailable
+                    {% else %}out-season{% endif %}">
+                    {{ product.get_availability_display }}
+                </span>
+            </div>
+            <div class="season-dates">
+                <i class="bi bi-calendar3"></i> Available: {{ product.get_season_display }}
+            </div>
+
+            <!-- Name & price -->
+            <h1 class="detail-name">{{ product.name }}</h1>
+
+            {% if active_deal %}
+                <div class="detail-price">
+                    <span style="text-decoration:line-through;color:#9ca3af;font-size:0.9em;">£{{ product.price }}</span>
+                    <strong style="color:#dc2626;font-size:1.3em;">£{{ active_deal.discounted_price }}</strong>
+                    <span>per {{ product.unit }}</span>
+                    <span style="background:#ff6b00;color:#fff;font-size:0.75em;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:4px;">{{ active_deal.discount_percent }}% OFF</span>
+                </div>
+
+                {% if active_deal.best_before_date %}
+                <div class="deal-best-before">
+                    <i class="bi bi-calendar3"></i>
+                    <div class="deal-best-before-content">
+                        <strong>Best before:</strong>
+                        <span>{{ active_deal.best_before_date|date:"F j, Y" }}</span>
+                        {% if active_deal.best_before_date <= today %}
+                        <span class="urgent-tag">Urgent</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if active_deal.note %}
+                <div class="deal-note">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div class="deal-note-content">
+                        <strong>Note:</strong>
+                        {{ active_deal.note }}
+                    </div>
+                </div>
+                {% endif %}
+
+            {% else %}
+                <div class="detail-price">
+                    £{{ product.price }} <span>per {{ product.unit }}</span>
+                </div>
+            {% endif %}
+
+            <!-- Food miles -->
+            {% if food_miles is not None %}
+                {% if food_miles <= 30 %}
+                    <div class="detail-food-miles local">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        {% if user_is_authenticated and user_has_coordinates %}
+                            {{ food_miles }} miles from your location &mdash; Local
+                        {% else %}
+                            {{ food_miles }} miles from Bristol &mdash; Local
+                        {% endif %}
+                    </div>
+                {% elif food_miles <= 100 %}
+                    <div class="detail-food-miles medium">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        {% if user_is_authenticated and user_has_coordinates %}
+                            {{ food_miles }} miles from your location &mdash; Regional
+                        {% else %}
+                            {{ food_miles }} miles from Bristol &mdash; Regional
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="detail-food-miles far">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        {% if user_is_authenticated and user_has_coordinates %}
+                            {{ food_miles }} miles from your location &mdash; Long distance
+                        {% else %}
+                            {{ food_miles }} miles from Bristol &mdash; Long distance
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+
+            <!-- Description -->
+            <p class="detail-description">{{ product.description }}</p>
+
+            <!-- Metadata grid -->
+            <ul class="detail-meta">
+                <li>
+                    <i class="bi bi-box-seam"></i>
+                    <strong>Stock</strong>
+                    {% if product.is_available %}
+
+                        <!-- check if low quantity -->
+                        {% if product.is_low_stock %}
+                        <span class="stock-low">Only {{ product.stock_quantity }} left!</span>
+                        {% else %}
+                        <!-- normal amount -->
+                        <span>{{ product.stock_quantity }} available</span>
+                        {% endif %}
+
+                    {% else %}
+                    <!-- if product is unavailable -->
+                    <span class="stock-available">Unavailable</span>
+                    {% endif %}
+                </li>
+                {% if product.harvest_date %}
+                <li>
+                    <i class="bi bi-calendar3"></i>
+                    <strong>Harvested</strong>
+                    <span>{{ product.harvest_date }}</span>
+                </li>
+                {% endif %}
+                <li>
+                    <i class="bi bi-tag"></i>
+                    <strong>Unit</strong>
+                    <span>{{ product.unit }}</span>
+                </li>
+                {% if product.producer %}
+                <li>
+                    <i class="bi bi-shop"></i>
+                    <strong>Producer</strong>
+                    <span>{{ product.producer.business_name }}</span>
+                </li>
+                {% endif %}
+                {% if product.allergen_display %}
+                <li>
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Allergens</strong>
+                    <span>{{ product.allergen_display }}</span>
+                </li>
+                {% endif %}
+            </ul>
+
+            <!-- Add to cart form -->
+            <div class="detail-cart-form">
+                {% if product.is_active %}
+                    <!-- {# Product is active #} -->
+                    {% if user.is_authenticated %}
+                        {% if product.availability == 'available' %}
+                        <form action="{% url 'mainApp:customers:add_to_cart' product.id %}" method="post"
+                            style="display:contents;">
+                            {% csrf_token %}
+                            <div class="qty-wrapper">
+                                <label for="qty-detail"><i class="bi bi-hash"></i> Qty</label>
+                                <input class="qty-input" type="number" id="qty-detail" name="quantity"
+                                    value="1" min="1" max="{{ product.stock_quantity }}">
+                            </div>
+                            <button type="submit" class="btn-add-cart">
+                                <i class="bi bi-cart-plus"></i> Add to Cart
+                            </button>
+                        </form>
+                        {% else %}
+                        <div class="unavailable-notice">
+                            <i class="bi bi-x-circle"></i> Unavailable
+                        </div>
+                        {% endif %}
+                        <!-- Wishlist (UI only) -->
+                        <!-- <button class="btn-wishlist" type="button" aria-label="Save to wishlist">
+                            <i class="bi bi-heart"></i>
+                        </button> -->
+                    {% else %}
+                    <a href="{% url 'mainApp:customers:login' %}?next={% url 'mainApp:products:product_detail' product.id %}"
+                    class="btn-login-prompt">
+                        <i class="bi bi-box-arrow-in-right"></i> Log in to add to cart
+                    </a>
+                    {% endif %}
+
+                {% else %}
+                    <!-- {# Product is soft-deleted #} -->
+                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-4 text-center">
+                        <div class="text-gray-500 mb-2">
+                            <i class="bi bi-exclamation-triangle-fill text-2xl"></i>
+                        </div>
+                        <p class="text-gray-700 font-semibold">This product is no longer available</p>
+                        {% if product.deleted_at %}
+                            <p class="text-gray-500 text-sm mt-1">
+                                Removed on: {{ product.deleted_at|date:"F j, Y" }}
+                            </p>
+                        {% endif %}
+                        <p class="text-gray-400 text-xs mt-2">
+                            This product has been discontinued by the producer
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    <!-- TC-020: Recipe Suggestions -->
+    {% if linked_recipes %}
+    <div class="recipe-suggestions">
+        <div class="recipe-suggestions-header">
+            <h2 class="recipe-suggestions-title">
+                <i class="bi bi-journal-richtext"></i> Recipe Suggestions
+            </h2>
+            <a href="{% url 'mainApp:products:recipe_list' %}" class="recipe-suggestions-link">
+                All recipes <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="recipe-suggestions-grid">
+            {% for recipe in linked_recipes %}
+            <a href="{% url 'mainApp:products:recipe_detail' recipe.id %}" class="recipe-suggestion-card">
+                <div class="recipe-suggestion-img">
+                    {% if recipe.image %}
+                        <img src="{{ recipe.image.url }}" alt="{{ recipe.title }}">
+                        {% if recipe.seasonal_tags %}
+                        <div class="recipe-suggestion-tags">
+                            {% for tag in recipe.seasonal_tags|split:',' %}
+                            <span class="rs-tag rs-tag-{{ tag|lower }}">{{ tag|title }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="recipe-suggestion-placeholder">
+                            <i class="bi bi-journal-richtext"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="recipe-suggestion-body">
+                    <h3 class="recipe-suggestion-name">{{ recipe.title }}</h3>
+                    <p class="recipe-suggestion-producer">
+                        <i class="bi bi-shop"></i> {{ recipe.producer.business_name }}
+                    </p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- About the Producer -->
+    {% if product.producer %}
+    <div class="detail-producer-card">
+        <div class="producer-card-header">
+            <i class="bi bi-shop-window"></i>
+            <h3>About the Producer</h3>
+        </div>
+        <div class="producer-card-body">
+            <div class="producer-avatar"><i class="bi bi-person-badge"></i></div>
+            <div style="flex:1;">
+                <div class="producer-card-name">{{ product.producer.business_name }}</div>
+                {% with addr=product.producer.farm_address %}
+                {% if addr and addr.city %}
+                <div class="producer-card-location">
+                    <i class="bi bi-geo-alt"></i>
+                    {{ addr.city }}{% if addr.county %}, {{ addr.county }}{% endif %}
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% if food_miles is not None %}
+                <div class="producer-card-miles">
+                    <i class="bi bi-arrow-left-right"></i>
+                    {{ food_miles }} miles from Bristol
+                </div>
+                {% endif %}
+                <a href="{% url 'mainApp:products:producer_stories' product.producer.id %}"
+                   class="btn-outline" style="display:inline-flex;margin-top:0.75rem;font-size:0.8rem;">
+                    <i class="bi bi-journal-richtext"></i> View Stories & Recipes
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- TC-024: Reviews -->
+    <div class="detail-wrapper" style="padding-top:0;margin-top:1.5rem;">
+        <div class="profile-card" style="padding:1.25rem;">
+            <div class="profile-card-title"><i class="bi bi-star-half"></i> Customer Reviews</div>
+
+            {% if reviews %}
+                <div style="margin-top:1rem;display:flex;flex-direction:column;gap:1rem;">
+                {% for review in reviews %}
+                    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+                            <strong>{{ review.customer.get_full_name|default:review.customer.username }}</strong>
+                            <span style="color:#f59e0b;font-size:1rem;">
+                                {% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}
+                            </span>
+                        </div>
+                        {% if review.title %}<p style="font-weight:600;margin-bottom:0.25rem;">{{ review.title }}</p>{% endif %}
+                        {% if review.body %}<p style="color:#4b5563;font-size:0.875rem;">{{ review.body }}</p>{% endif %}
+                        <p style="color:#9ca3af;font-size:0.75rem;margin-top:0.5rem;">{{ review.created_at|date:"F j, Y" }}</p>
+
+                        <!-- Producer response -->
+                        {% if review.producer_response %}
+                        <div style="margin-top:0.75rem;padding:0.75rem;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:0 6px 6px 0;">
+                            <p style="font-size:0.75rem;font-weight:700;color:#16a34a;margin-bottom:0.25rem;">
+                                <i class="bi bi-shop"></i> {{ review.producer_response.producer.business_name }} replied:
+                            </p>
+                            <p style="font-size:0.875rem;color:#374151;margin:0;">{{ review.producer_response.body }}</p>
+                            <p style="font-size:0.7rem;color:#9ca3af;margin-top:0.25rem;">{{ review.producer_response.created_at|date:"F j, Y" }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Response form for the product's producer -->
+                        {% if user.is_authenticated and product.producer and user == product.producer.user %}
+                        {% if not review.producer_response %}
+                        <details style="margin-top:0.5rem;">
+                            <summary style="font-size:0.8rem;color:#16a34a;cursor:pointer;font-weight:600;">
+                                <i class="bi bi-reply"></i> Reply to this review
+                            </summary>
+                            <form method="post" action="{% url 'mainApp:products:respond_to_review' review.id %}" style="margin-top:0.5rem;">
+                                {% csrf_token %}
+                                <textarea name="body" rows="2" required
+                                    style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.875rem;"
+                                    placeholder="Write your response…"></textarea>
+                                <button type="submit" class="btn-add-cart" style="margin-top:0.35rem;padding:0.35rem 1rem;font-size:0.8rem;">
+                                    Post Response
+                                </button>
+                            </form>
+                        </details>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p style="color:#9ca3af;margin-top:0.75rem;">No reviews yet. Be the first to review this product.</p>
+            {% endif %}
+
+            {% if user.is_authenticated and user_has_purchased and not user_review %}
+            <div style="margin-top:1.5rem;border-top:1px solid #e5e7eb;padding-top:1rem;">
+                <h4 style="font-weight:600;margin-bottom:0.75rem;">Write a Review</h4>
+                <form method="post" action="{% url 'mainApp:products:submit_review' product.id %}">
+                    {% csrf_token %}
+                    <div style="margin-bottom:0.75rem;">
+                        <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.3rem;">Rating</label>
+                        <select name="rating" required style="border:1px solid #d1d5db;border-radius:6px;padding:0.4rem 0.75rem;">
+                            <option value="">Select rating</option>
+                            {% for i in "12345" %}
+                            <option value="{{ forloop.counter }}">{{ forloop.counter }} star{{ forloop.counter|pluralize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="margin-bottom:0.75rem;">
+                        <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.3rem;">Title (optional)</label>
+                        <input type="text" name="title" maxlength="255"
+                            style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:0.4rem 0.75rem;"
+                            placeholder="Summarise your experience">
+                    </div>
+                    <div style="margin-bottom:0.75rem;">
+                        <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.3rem;">Review (optional)</label>
+                        <textarea name="body" rows="3"
+                            style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:0.4rem 0.75rem;"
+                            placeholder="Share your thoughts..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-add-cart" style="padding:0.5rem 1.25rem;">
+                        <i class="bi bi-check-circle"></i> Submit Review
+                    </button>
+                </form>
+            </div>
+            {% elif user.is_authenticated and user_review %}
+            <p style="color:#059669;margin-top:0.75rem;font-size:0.875rem;"><i class="bi bi-check-circle"></i> You have reviewed this product.</p>
+            {% elif user.is_authenticated and not user_has_purchased %}
+            <p style="color:#9ca3af;margin-top:0.75rem;font-size:0.875rem;">Purchase and receive this product to leave a review.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
