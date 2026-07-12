@@ -1,0 +1,177 @@
+/* ===== PRODUCER REGISTER PAGE STYLES ===== */
+
+/* Center the right panel content */
+.auth-split-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 80px);
+    padding: var(--space-8) var(--space-4);
+}
+
+/* Main card wrapper */
+.register-card {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-8);
+    width: 100%;
+    max-width: 800px;
+}
+
+/* Header section */
+.register-header {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.register-header h2 {
+    color: var(--color-text);
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: var(--space-2);
+}
+
+.register-header p {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Form sections with subtle left border */
+.form-section {
+    margin-bottom: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-md);
+}
+
+.form-section h6 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.form-section h6 i {
+    color: var(--color-primary);
+    font-size: 0.9rem;
+}
+
+/* Submit button */
+.register-submit-btn {
+    width: 100%;
+    padding: var(--space-4);
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+    margin-top: var(--space-4);
+    border: none;
+    cursor: pointer;
+}
+
+.register-submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.register-submit-btn:active {
+    transform: translateY(0);
+}
+
+/* Terms checkbox wrapper */
+.terms-wrapper {
+    padding: var(--space-3) var(--space-4);
+    /* background: var(--color-bg); */
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-4);
+}
+
+.terms-wrapper .form-check {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
+.terms-wrapper .form-check-input {
+    margin-top: 0.2rem;
+}
+
+.terms-wrapper .form-check-label {
+    font-size: 0.875rem;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+/* Footer links */
+.register-footer {
+    text-align: center;
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--space-6);
+}
+
+.register-footer p {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin-bottom: var(--space-3);
+}
+
+.register-footer a {
+    color: var(--color-primary);
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.register-footer a:hover {
+    color: var(--color-primary-hover);
+}
+
+/* Error styling */
+.text-danger.small {
+    font-size: 0.8rem;
+    margin-top: var(--space-1);
+    display: block;
+}
+
+.text-muted {
+    font-size: 0.8rem;
+    margin-top: var(--space-1);
+    display: block;
+}
+
+/* Form field spacing */
+.form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    display: block;
+    color: var(--color-text);
+}
+
+/* Optional label styling */
+.optional-label {
+    font-weight: 400;
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+
+/* Password hints */
+.password-hints {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-top: var(--space-2);
+    line-height: 1.8;
+}
+
+/* Customer link in footer */
+.customer-link {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
+}
