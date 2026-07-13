@@ -1,6 +1,4 @@
 from pathlib import Path
-import shutil
-from PIL import Image, ImageChops
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -14,59 +12,12 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
-    Flowable,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "output" / "pdf" / "CONTRIBUTION_MATRIX.pdf"
-ROOT_OUTPUT = ROOT / "CONTRIBUTION_MATRIX.pdf"
-CHI_SIGNATURE = ROOT / "assets" / "signatures" / "chi-miu-signature.png"
-ABDULLAH_SIGNATURE = ROOT / "assets" / "signatures" / "abdullah-signature.png"
+OUTPUT = ROOT / "output" / "pdf" / "CONTRIBUTION_MATRIX_50_50_DRAFT.pdf"
 OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-
-
-class CroppedSignature(Flowable):
-    """Fit a signature's ink bounds into the cell with comfortable padding."""
-
-    def __init__(self, signature, width=48 * mm, height=12 * mm, padding=6):
-        super().__init__()
-        self.signature = Path(signature)
-        self.width = width
-        self.height = height
-        self.padding = padding
-
-    def draw(self):
-        with Image.open(self.signature).convert("RGB") as image:
-            image_width, image_height = image.size
-            background = Image.new("RGB", image.size, image.getpixel((0, 0)))
-            bounds = ImageChops.difference(image, background).getbbox()
-        if bounds is None:
-            bounds = (0, 0, image_width, image_height)
-        crop_left, crop_top, crop_right, crop_bottom = bounds
-        crop_left = max(0, crop_left - self.padding)
-        crop_top = max(0, crop_top - self.padding)
-        crop_right = min(image_width, crop_right + self.padding)
-        crop_bottom = min(image_height, crop_bottom + self.padding)
-        crop_width = crop_right - crop_left
-        crop_height = crop_bottom - crop_top
-        scale = min(self.width / crop_width, self.height / crop_height)
-        visible_width = crop_width * scale
-        visible_height = crop_height * scale
-        x = (self.width - visible_width) / 2 - crop_left * scale
-        y = (self.height - visible_height) / 2 - (image_height - crop_bottom) * scale
-        path = self.canv.beginPath()
-        path.rect(0, 0, self.width, self.height)
-        self.canv.saveState()
-        self.canv.clipPath(path, stroke=0, fill=0)
-        self.canv.drawImage(
-            str(self.signature), x, y,
-            width=image_width * scale,
-            height=image_height * scale,
-            preserveAspectRatio=True,
-            mask="auto",
-        )
-        self.canv.restoreState()
 
 styles = getSampleStyleSheet()
 styles.add(
@@ -137,7 +88,7 @@ def footer(canvas, doc):
     canvas.line(18 * mm, 13 * mm, 192 * mm, 13 * mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#5D6B78"))
-    canvas.drawString(18 * mm, 8 * mm, "DESD Resit - Contribution Matrix")
+    canvas.drawString(18 * mm, 8 * mm, "DESD Resit - 50/50 Contribution Matrix Draft")
     canvas.drawRightString(192 * mm, 8 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -153,8 +104,8 @@ story = [
 
 identity = Table(
     [
-        [p("Group number"), p("N/A"), p("Tutor"), p("________________")],
-        [p("Discussion date"), p("12/7/2026"), p("Submission date"), p("13 July 2026")],
+        [p("Group number"), p("________________"), p("Tutor"), p("________________")],
+        [p("Discussion date"), p("________________"), p("Submission date"), p("13 July 2026")],
     ],
     colWidths=[34 * mm, 50 * mm, 34 * mm, 50 * mm],
     rowHeights=[11 * mm, 11 * mm],
@@ -176,8 +127,8 @@ story += [identity, Spacer(1, 8 * mm), p("Group member details", "MatrixHeading"
 members = Table(
     [
         [p("Member", "MatrixHeader"), p("Student ID", "MatrixHeader"), p("Full name", "MatrixHeader"), p("Primary roles", "MatrixHeader")],
-        [p("1"), p("22066786"), p("Chi Miu"), p("Backend, database, Docker, testing, documentation")],
-        [p("2"), p("22066753"), p("Abdullah"), p("Backend, frontend, API, testing, project management")],
+        [p("1"), p("[enter ID]"), p("Chi Miu"), p("Backend, database, Docker, testing, documentation")],
+        [p("2"), p("[enter ID]"), p("Abdullah"), p("Backend, frontend, API, testing, project management")],
     ],
     colWidths=[18 * mm, 35 * mm, 48 * mm, 67 * mm],
     rowHeights=[10 * mm, 16 * mm, 16 * mm],
@@ -222,7 +173,14 @@ overall.setStyle(
         ]
     )
 )
-story += [overall, PageBreak(), p("Technical component contributions", "MatrixTitle")]
+story += [overall, Spacer(1, 6 * mm), p("Draft status", "MatrixHeading")]
+story += [
+    p(
+        "This document records a 50/50 overall split using exclusive task ownership: Chi Miu owns 10 technical components and Abdullah owns 10. Each row is 100/0, not 50/50. Add student IDs, evidence references, and discussion details before signing."
+    ),
+    PageBreak(),
+    p("Technical component contributions", "MatrixTitle"),
+]
 
 components = [
     ("Requirements analysis, documentation, and project management", "Chi Miu"),
@@ -275,10 +233,13 @@ component_table.setStyle(TableStyle(component_style))
 story += [component_table, PageBreak(), p("Agreement and verification", "MatrixTitle")]
 
 checks = [
+    "[ ] We reviewed the Git commit history for both members.",
     "[ ] We reviewed the Notion task pages and evidence links.",
     "[ ] We discussed time investment and workload distribution.",
     "[ ] Both members understand and can demonstrate the submitted code.",
     "[ ] Chi Miu owns 10 components and Abdullah owns 10 components.",
+    "[ ] Every technical component has exactly one owner (100/0).",
+    "[ ] The generative-AI declaration is accurate and follows module guidance.",
 ]
 story += [p("Verification checklist", "MatrixHeading")]
 for check in checks:
@@ -287,11 +248,11 @@ for check in checks:
 story += [Spacer(1, 4 * mm), p("Discussion record", "MatrixHeading")]
 discussion = Table(
     [
-        [p("Date of contribution discussion"), p("12/7/2026")],
-        [p("Meeting duration"), p("2 hours")],
-        [p("Both members present"), p("Yes")],
-        [p("Disagreements"), p("No")],
-        [p("Resolution, if required"), p("N/A")],
+        [p("Date of contribution discussion"), p("________________________________________")],
+        [p("Meeting duration"), p("________________________________________")],
+        [p("Both members present"), p("Yes / No")],
+        [p("Disagreements"), p("Yes / No")],
+        [p("Resolution, if required"), p("________________________________________<br/>________________________________________")],
     ],
     colWidths=[60 * mm, 108 * mm],
     rowHeights=[12 * mm, 12 * mm, 12 * mm, 12 * mm, 25 * mm],
@@ -317,11 +278,11 @@ story += [
 
 signatures = Table(
     [
-        [p("Chi Miu signature"), CroppedSignature(CHI_SIGNATURE), p("Date"), p("12/7/2026")],
-        [p("Abdullah signature"), CroppedSignature(ABDULLAH_SIGNATURE), p("Date"), p("12/7/2026")],
+        [p("Chi Miu signature"), p("____________________________"), p("Date"), p("____________")],
+        [p("Abdullah signature"), p("____________________________"), p("Date"), p("____________")],
     ],
     colWidths=[38 * mm, 70 * mm, 20 * mm, 40 * mm],
-    rowHeights=[18 * mm, 16 * mm],
+    rowHeights=[16 * mm, 16 * mm],
 )
 signatures.setStyle(
     TableStyle(
@@ -342,9 +303,8 @@ doc = SimpleDocTemplate(
     leftMargin=18 * mm,
     topMargin=16 * mm,
     bottomMargin=18 * mm,
-    title="DESD Resit Contribution Matrix",
+    title="DESD Resit 50/50 Contribution Matrix Draft",
     author="DESD Resit Group",
 )
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
-shutil.copyfile(OUTPUT, ROOT_OUTPUT)
 print(OUTPUT)

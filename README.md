@@ -35,25 +35,7 @@ cd DESD
 
 If the project was supplied as a ZIP, extract it and open a terminal in the folder containing `docker-compose.yml`.
 
-### 2. Create the environment file
-
-macOS/Linux:
-
-```bash
-cp .env.example .env
-```
-
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-The defaults are suitable for a local demonstration. Before any public deployment, replace `DJANGO_SECRET_KEY` and `DB_PASSWORD` with long random values.
-
-Stripe keys are optional. If supplied, they must begin with `pk_test_` and `sk_test_`. Never use live payment keys or real card details.
-
-### 3. Build and start the full project
+### 2. Build and start the full project
 
 ```bash
 docker compose up --build
@@ -79,7 +61,7 @@ docker compose ps
 
 All five default services should show as running, and `web`, `db`, and `redis` should show as healthy.
 
-### 4. Open the application
+### 3. Open the application
 
 | Service | Address |
 |---|---|
@@ -89,7 +71,7 @@ All five default services should show as running, and `web`, `db`, and `redis` s
 | REST API products | http://localhost:8000/api/products/ |
 | Django admin | http://localhost:8000/admin/ |
 
-### 5. Use the demonstration accounts
+### 4. Use the demonstration accounts
 
 All seeded demonstration accounts use this password:
 
@@ -107,7 +89,7 @@ DemoPass!2026
 
 These credentials are for local assessment demonstrations only.
 
-### 6. Verify the running system
+### 5. Verify the running system
 
 ```bash
 docker compose ps
@@ -120,7 +102,7 @@ The health endpoint should return:
 {"status":"ok","service":"brfn-marketplace"}
 ```
 
-### 7. Run the automated tests
+### 6. Run the automated tests
 
 The automated suite uses an isolated SQLite test database and does not alter the Docker PostgreSQL data:
 
@@ -139,7 +121,7 @@ Windows PowerShell single-line version:
 docker compose run --rm -e RUN_MIGRATIONS=false -e SEED_DEMO_DATA=false -e USE_SQLITE=true -e USE_REDIS_CACHE=false web python manage.py test
 ```
 
-### 8. Stop the project
+### 7. Stop the project
 
 ```bash
 docker compose down
