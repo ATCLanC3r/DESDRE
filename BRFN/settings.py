@@ -7,7 +7,13 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+
+# Resolve the environment file from the project directory instead of the shell's
+# current directory. This behaves identically when Django is started from
+# PowerShell, Command Prompt, macOS/Linux shells, an IDE, or Docker. ``utf-8-sig``
+# also accepts files saved by Windows editors with a UTF-8 byte-order mark.
+ENV_FILE = Path(os.getenv("DJANGO_ENV_FILE", BASE_DIR / ".env")).expanduser()
+load_dotenv(ENV_FILE, encoding="utf-8-sig")
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -152,9 +158,9 @@ else:
 USE_DEMO_IMAGES = env_bool("USE_DEMO_IMAGES", True)
 DEV_NAME = os.getenv("DEV_NAME", "local")
 
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")

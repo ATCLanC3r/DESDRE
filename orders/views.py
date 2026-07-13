@@ -236,8 +236,15 @@ def create_checkout_session(request):
     # back to checkout -- so the customer can never reach the Stripe payment page.
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_PUBLISHABLE_KEY:
-        messages.error(request, 'Stripe Test Mode is not configured. Add both Stripe test API keys and restart the application.')
+    # This application redirects to Stripe-hosted Checkout, so the server-side
+    # secret key is sufficient. A publishable key is only required when Stripe.js
+    # is embedded in our own page.
+    if not settings.STRIPE_SECRET_KEY:
+        messages.error(
+            request,
+            'Stripe is not configured. Add STRIPE_SECRET_KEY to the project '
+            '.env file and restart the application.',
+        )
         return redirect('mainApp:orders:checkout')
 
     cart = request.user.cart

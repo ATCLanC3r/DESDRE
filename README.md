@@ -35,7 +35,28 @@ cd DESD
 
 If the project was supplied as a ZIP, extract it and open a terminal in the folder containing `docker-compose.yml`.
 
-### 2. Build and start the full project
+### 2. Configure local environment variables
+
+The `.env` format is platform-independent. Create it beside `docker-compose.yml`:
+
+macOS/Linux:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Replace the placeholder values in `.env`. For Stripe-hosted Checkout, set at
+least `STRIPE_SECRET_KEY` to a Stripe test secret key. Do not commit `.env` or
+share its values. If the project is run without Docker and the environment file
+is elsewhere, set `DJANGO_ENV_FILE` to its absolute path.
+
+### 3. Build and start the full project
 
 ```bash
 docker compose up --build
@@ -61,7 +82,7 @@ docker compose ps
 
 All five default services should show as running, and `web`, `db`, and `redis` should show as healthy.
 
-### 3. Open the application
+### 4. Open the application
 
 | Service | Address |
 |---|---|
@@ -71,7 +92,7 @@ All five default services should show as running, and `web`, `db`, and `redis` s
 | REST API products | http://localhost:8000/api/products/ |
 | Django admin | http://localhost:8000/admin/ |
 
-### 4. Use the demonstration accounts
+### 5. Use the demonstration accounts
 
 All seeded demonstration accounts use this password:
 
@@ -89,7 +110,7 @@ DemoPass!2026
 
 These credentials are for local assessment demonstrations only.
 
-### 5. Verify the running system
+### 6. Verify the running system
 
 ```bash
 docker compose ps
@@ -102,7 +123,7 @@ The health endpoint should return:
 {"status":"ok","service":"brfn-marketplace"}
 ```
 
-### 6. Run the automated tests
+### 7. Run the automated tests
 
 The automated suite uses an isolated SQLite test database and does not alter the Docker PostgreSQL data:
 
@@ -121,7 +142,7 @@ Windows PowerShell single-line version:
 docker compose run --rm -e RUN_MIGRATIONS=false -e SEED_DEMO_DATA=false -e USE_SQLITE=true -e USE_REDIS_CACHE=false web python manage.py test
 ```
 
-### 7. Stop the project
+### 8. Stop the project
 
 ```bash
 docker compose down
@@ -193,7 +214,23 @@ Authenticated endpoints:
 
 ## Payment testing
 
-The default setup works without Stripe credentials and must be demonstrated with mock/test data. If Stripe test mode is configured, use Stripe's test card `4242 4242 4242 4242`, any future expiry date, and any three-digit CVC. Never enter real financial information.
+Browsing and the seeded demonstration data work without Stripe credentials, but
+customer checkout requires a Stripe secret key. In Stripe test mode, use Stripe's
+test card `4242 4242 4242 4242`, any future expiry date, and any three-digit CVC.
+Never enter real financial information.
+
+After editing `.env`, recreate the web container so Docker Compose passes the
+new values to Django, then validate the configuration without printing any keys:
+
+```bash
+docker compose up -d --force-recreate web
+docker compose exec web python manage.py check_stripe_config
+```
+
+The current checkout redirects to a Stripe-hosted page, so
+`STRIPE_PUBLISHABLE_KEY` is optional. `STRIPE_WEBHOOK_SECRET` is required only
+when receiving signed webhook events (for example through the Stripe CLI or a
+public webhook endpoint).
 
 ## Troubleshooting
 
