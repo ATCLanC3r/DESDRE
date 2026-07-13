@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Order History{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'orders/profile/order_history.css' %}">
+{% endblock %}
+{% block content %}
+<div class="order-history-page">
+    <!-- Header -->
+    <div class="order-history-header">
+        <h1>Order History</h1>
+        <p>View all your past orders and their details.</p>
+    </div>
+
+    <!-- Stats -->
+    {% if orders %}
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_orders }}</div>
+            <div class="stat-label">Total Orders</div>
+        </div>
+        <div class="stat-card stat-card-active">
+            <div class="stat-value">{{ active_orders }}</div>
+            <div class="stat-label">Active Orders</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filter Tabs -->
+    {% if orders_data %}
+    <div class="filter-tabs">
+        <button class="tab-btn" data-filter="all">All</button>
+        <button class="tab-btn active" data-filter="active">Active</button>
+        <button class="tab-btn" data-filter="completed">Completed</button>
+        <button class="tab-btn" data-filter="cancelled">Cancelled</button>
+    </div>
+    {% endif %}
+
+    <!-- Orders List -->
+    {% if orders_data %}
+        <!-- This Week -->
+        <div class="time-group" data-group="This Week">
+            <h3 class="time-group-header">This Week</h3>
+            {% for order_info in orders_data %}
+                {% if order_info.time_group == 'This Week' %}
+                <div class="order-card" data-status="{{ order_info.overall_status }}">
+                    <div class="order-card-header">
+                        <div class="order-card-header-left">
+                            <span class="order-id">Order #{{ order_info.order.id }}</span>
+                            <span class="order-date">{{ order_info.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="order-card-header-right">
+                            <span class="status-dots">
+                                {% for producer in order_info.producers %}
+                                <span class="status-dot {{ producer.status }}" title="{{ producer.business_name }}: {{ producer.status }}"></span>
+                                {% endfor %}
+                            </span>
+                            <span class="status-badge status-{{ order_info.overall_status }}">
+                                {{ order_info.overall_status|title }}
+                            </span>
+                            <span class="order-total">£{{ order_info.total_amount }}</span>
+                            <button class="toggle-btn" onclick="this.closest('.order-card').classList.toggle('expanded')">
+                                Show Details
+                            </button>
+                        </div>
+                    </div>
+                    <div class="order-card-body">
+                        <div class="order-shipping">
+                            <i class="bi bi-truck"></i>
+                            <span>Delivering to: {{ order_info.shipping_address }}</span>
+                        </div>
+                        {% for producer in order_info.producers %}
+                        <div class="producer-section {{ producer.status }}">
+                            <div class="producer-header">
+                                <span class="producer-name">{{ producer.business_name }}</span>
+                                <span class="producer-status">
+                                    {{ producer.status_display }}
+                                    {% if producer.status == 'delivered' and producer.completed_at %}
+                                        — Delivered on {{ producer.completed_at|date:"d M Y" }}
+                                    {% elif producer.delivery_date %}
+                                        — Expected by {{ producer.delivery_date|date:"d M Y" }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-product">Product</th>
+                                        <th class="col-qty">Qty</th>
+                                        <th class="col-price">Price</th>
+                                        <th class="col-total">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in producer.items %}
+                                    <tr>
+                                        <td>
+                                            {% if item.product_id %}
+                                            <a href="{% url 'mainApp:products:product_detail' item.product_id %}" class="product-link">
+                                                {{ item.name }}
+                                            </a>
+                                            {% else %}
+                                            {{ item.name }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="col-qty">{{ item.quantity }} {% if item.unit %}{{ item.unit }}{% endif %}</td>
+                                        <td class="col-price">£{{ item.price }}</td>
+                                        <td class="col-total">£{{ item.line_total }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- This Month -->
+        <div class="time-group" data-group="This Month">
+            <h3 class="time-group-header">This Month</h3>
+            {% for order_info in orders_data %}
+                {% if order_info.time_group == 'This Month' %}
+                <div class="order-card" data-status="{{ order_info.overall_status }}">
+                    <div class="order-card-header">
+                        <div class="order-card-header-left">
+                            <span class="order-id">Order #{{ order_info.order.id }}</span>
+                            <span class="order-date">{{ order_info.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="order-card-header-right">
+                            <span class="status-dots">
+                                {% for producer in order_info.producers %}
+                                <span class="status-dot {{ producer.status }}" title="{{ producer.business_name }}: {{ producer.status }}"></span>
+                                {% endfor %}
+                            </span>
+                            <span class="status-badge status-{{ order_info.overall_status }}">
+                                {{ order_info.overall_status|title }}
+                            </span>
+                            <span class="order-total">£{{ order_info.total_amount }}</span>
+                            <button class="toggle-btn" onclick="this.closest('.order-card').classList.toggle('expanded')">
+                                Show Details
+                            </button>
+                        </div>
+                    </div>
+                    <div class="order-card-body">
+                        <div class="order-shipping">
+                            <i class="bi bi-truck"></i>
+                            <span>Delivering to: {{ order_info.shipping_address }}</span>
+                        </div>
+                        {% for producer in order_info.producers %}
+                        <div class="producer-section {{ producer.status }}">
+                            <div class="producer-header">
+                                <span class="producer-name">{{ producer.business_name }}</span>
+                                <span class="producer-status">
+                                    {{ producer.status_display }}
+                                    {% if producer.status == 'delivered' and producer.completed_at %}
+                                        — Delivered on {{ producer.completed_at|date:"d M Y" }}
+                                    {% elif producer.delivery_date %}
+                                        — Expected by {{ producer.delivery_date|date:"d M Y" }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-product">Product</th>
+                                        <th class="col-qty">Qty</th>
+                                        <th class="col-price">Price</th>
+                                        <th class="col-total">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in producer.items %}
+                                    <tr>
+                                        <td>
+                                            {% if item.product_id %}
+                                            <a href="{% url 'mainApp:products:product_detail' item.product_id %}" class="product-link">
+                                                {{ item.name }}
+                                            </a>
+                                            {% else %}
+                                            {{ item.name }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="col-qty">{{ item.quantity }} {% if item.unit %}{{ item.unit }}{% endif %}</td>
+                                        <td class="col-price">£{{ item.price }}</td>
+                                        <td class="col-total">£{{ item.line_total }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Earlier -->
+        <div class="time-group" data-group="Earlier">
+            <h3 class="time-group-header">Earlier</h3>
+            {% for order_info in orders_data %}
+                {% if order_info.time_group == 'Earlier' %}
+                <div class="order-card" data-status="{{ order_info.overall_status }}">
+                    <div class="order-card-header">
+                        <div class="order-card-header-left">
+                            <span class="order-id">Order #{{ order_info.order.id }}</span>
+                            <span class="order-date">{{ order_info.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="order-card-header-right">
+                            <span class="status-dots">
+                                {% for producer in order_info.producers %}
+                                <span class="status-dot {{ producer.status }}" title="{{ producer.business_name }}: {{ producer.status }}"></span>
+                                {% endfor %}
+                            </span>
+                            <span class="status-badge status-{{ order_info.overall_status }}">
+                                {{ order_info.overall_status|title }}
+                            </span>
+                            <span class="order-total">£{{ order_info.total_amount }}</span>
+                            <button class="toggle-btn" onclick="this.closest('.order-card').classList.toggle('expanded')">
+                                Show Details
+                            </button>
+                        </div>
+                    </div>
+                    <div class="order-card-body">
+                        <div class="order-shipping">
+                            <i class="bi bi-truck"></i>
+                            <span>Delivering to: {{ order_info.shipping_address }}</span>
+                        </div>
+                        {% for producer in order_info.producers %}
+                        <div class="producer-section {{ producer.status }}">
+                            <div class="producer-header">
+                                <span class="producer-name">{{ producer.business_name }}</span>
+                                <span class="producer-status">
+                                    {{ producer.status_display }}
+                                    {% if producer.status == 'delivered' and producer.completed_at %}
+                                        — Delivered on {{ producer.completed_at|date:"d M Y" }}
+                                    {% elif producer.delivery_date %}
+                                        — Expected by {{ producer.delivery_date|date:"d M Y" }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <table class="items-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-product">Product</th>
+                                        <th class="col-qty">Qty</th>
+                                        <th class="col-price">Price</th>
+                                        <th class="col-total">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in producer.items %}
+                                    <tr>
+                                        <td>
+                                            {% if item.product_id %}
+                                            <a href="{% url 'mainApp:products:product_detail' item.product_id %}" class="product-link">
+                                                {{ item.name }}
+                                            </a>
+                                            {% else %}
+                                            {{ item.name }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="col-qty">{{ item.quantity }} {% if item.unit %}{{ item.unit }}{% endif %}</td>
+                                        <td class="col-price">£{{ item.price }}</td>
+                                        <td class="col-total">£{{ item.line_total }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="empty-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>
+                </svg>
+            </div>
+            <h3>No orders yet</h3>
+            <p>You haven't placed any orders yet.</p>
+            <a href="{% url 'mainApp:home' %}" class="btn-shop">Start Shopping</a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('.tab-btn');
+
+    // Filter function
+    function applyFilter(tab) {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        const filter = tab.dataset.filter;
+
+        // Filter order cards
+        document.querySelectorAll('.order-card').forEach(card => {
+            const status = card.dataset.status;
+            if (filter === 'all' || status === filter) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Hide empty time groups
+        document.querySelectorAll('.time-group').forEach(group => {
+            const visibleOrders = group.querySelectorAll('.order-card');
+            const hasVisible = Array.from(visibleOrders).some(c => c.style.display !== 'none');
+            group.style.display = hasVisible ? '' : 'none';
+        });
+    }
+
+    // Add click handlers
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            applyFilter(this);
+        });
+    });
+
+    // Apply default filter on page load
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab) {
+        applyFilter(activeTab);
+    }
+});
+</script>
+{% endblock %}

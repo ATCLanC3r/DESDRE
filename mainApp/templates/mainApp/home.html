@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}BRFN — Bristol's Local Food Exchange{% endblock %}
+
+{% block content %}
+<section class="orbit-hero">
+    <div class="orbit-hero-copy">
+        <p class="orbit-eyebrow"><span></span> Bristol's independent food exchange</p>
+        <h1>Eat closer<br>to <em>home.</em></h1>
+        <p class="orbit-lead">Shop directly from Bristol's growers, bakers and makers. One basket, less travel, more money kept in the local community.</p>
+        <div class="orbit-actions">
+            <a class="orbit-button orbit-button-primary" href="{% url 'mainApp:products:product_list' %}">Explore the market <i class="bi bi-arrow-up-right"></i></a>
+            <a class="orbit-text-link" href="{% url 'mainApp:producers:register' %}">Sell with BRFN <i class="bi bi-arrow-right"></i></a>
+        </div>
+        <form class="orbit-search" action="{% url 'mainApp:products:product_list' %}" method="get">
+            <i class="bi bi-search"></i>
+            <input name="q" type="search" placeholder="Try ‘sourdough’ or ‘BS5’" aria-label="Search the local market">
+            <button type="submit">Find food</button>
+        </form>
+    </div>
+
+    <div class="orbit-hero-art" aria-label="A selection of food from local Bristol producers">
+        <div class="orbit-sun"></div>
+        <div class="orbit-sticker">Bristol<br><strong>grown</strong></div>
+        <div class="orbit-market-card">
+            <div class="orbit-market-top"><span>Today's market</span><span>12 Jul</span></div>
+            <div class="orbit-produce-shapes">
+                <span class="shape-tomato"></span><span class="shape-leaf"></span><span class="shape-bread"></span>
+            </div>
+            <h2>Summer market box</h2>
+            <div class="orbit-market-meta"><span>4 local producers</span><strong>£24</strong></div>
+        </div>
+        <div class="orbit-distance-card"><i class="bi bi-geo-alt-fill"></i><div><strong>3.2 miles</strong><span>average journey</span></div></div>
+        <div class="orbit-growers">
+            <span>AJ</span><span>RB</span><span>KM</span>
+            <p><strong>38</strong> local producers</p>
+        </div>
+    </div>
+</section>
+
+<section class="orbit-ticker" aria-label="Marketplace highlights">
+    <div><i class="bi bi-basket2-fill"></i><span><strong>One basket</strong> across many producers</span></div>
+    <div><i class="bi bi-pin-map-fill"></i><span><strong>Food miles</strong> shown before checkout</span></div>
+    <div><i class="bi bi-lightning-charge-fill"></i><span><strong>Surplus deals</strong> cut waste and cost</span></div>
+    <div><i class="bi bi-shield-check"></i><span><strong>Secure checkout</strong> and clear order status</span></div>
+</section>
+
+<section class="orbit-section orbit-categories">
+    <div class="orbit-section-heading">
+        <div><p class="orbit-kicker">Browse the market</p><h2>What are you hungry for?</h2></div>
+        <a href="{% url 'mainApp:products:product_list' %}">View everything <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="orbit-category-grid">
+        <a href="{% url 'mainApp:products:product_list' %}?category=vegetables" class="orbit-category orbit-category-coral">
+            <span class="orbit-category-icon">🥕</span><div><small>Harvested nearby</small><h3>Vegetables</h3></div><i class="bi bi-arrow-up-right"></i>
+        </a>
+        <a href="{% url 'mainApp:products:product_list' %}?category=fruits" class="orbit-category orbit-category-mint">
+            <span class="orbit-category-icon">🍓</span><div><small>Sweet &amp; seasonal</small><h3>Fruit</h3></div><i class="bi bi-arrow-up-right"></i>
+        </a>
+        <a href="{% url 'mainApp:products:product_list' %}?category=dairy" class="orbit-category orbit-category-lilac">
+            <span class="orbit-category-icon">🧀</span><div><small>Made in small batches</small><h3>Dairy</h3></div><i class="bi bi-arrow-up-right"></i>
+        </a>
+        <a href="{% url 'mainApp:products:product_list' %}?category=bakery" class="orbit-category orbit-category-yellow">
+            <span class="orbit-category-icon">🥖</span><div><small>Fresh from the oven</small><h3>Bakery</h3></div><i class="bi bi-arrow-up-right"></i>
+        </a>
+        <a href="{% url 'mainApp:products:surplus_deals' %}" class="orbit-category orbit-category-ink">
+            <span class="orbit-category-icon">⚡</span><div><small>Save food and money</small><h3>Surplus</h3></div><i class="bi bi-arrow-up-right"></i>
+        </a>
+    </div>
+</section>
+
+<section class="orbit-section orbit-bento-wrap">
+    <div class="orbit-section-heading orbit-section-heading-light">
+        <div><p class="orbit-kicker">A better food system</p><h2>Local shopping, without the friction.</h2></div>
+    </div>
+    <div class="orbit-bento">
+        <article class="orbit-bento-main">
+            <div><span class="orbit-number">01</span><p class="orbit-kicker">Multi-producer checkout</p><h3>One basket.<br>Many neighbours.</h3><p>Add produce from different independent sellers and manage it as one clear order.</p></div>
+            <div class="orbit-mini-basket"><div><span>Elm Tree Farm</span><b>£8.40</b></div><div><span>Easton Bakery</span><b>£6.20</b></div><div><span>Harbourside Dairy</span><b>£4.80</b></div><strong><span>Your total</span><b>£19.40</b></strong></div>
+        </article>
+        <article class="orbit-bento-stat"><span class="orbit-number">02</span><div class="orbit-big-number">3.2<small>mi</small></div><h3>Know the journey</h3><p>Compare food miles while you shop.</p></article>
+        <article class="orbit-bento-waste"><span class="orbit-number">03</span><i class="bi bi-lightning-charge-fill"></i><div><h3>Good food deserves a plate.</h3><p>Time-limited surplus offers help local producers sell more and waste less.</p><a href="{% url 'mainApp:products:surplus_deals' %}">See today's deals <i class="bi bi-arrow-right"></i></a></div></article>
+    </div>
+</section>
+
+<section class="orbit-section orbit-process">
+    <div class="orbit-section-heading">
+        <div><p class="orbit-kicker">From Bristol to your table</p><h2>Four simple steps.</h2></div>
+    </div>
+    <div class="orbit-process-grid">
+        <article><span>1</span><i class="bi bi-search"></i><h3>Discover</h3><p>Search by product, producer or neighbourhood.</p></article>
+        <article><span>2</span><i class="bi bi-bag-plus"></i><h3>Build a basket</h3><p>Mix items from independent local sellers.</p></article>
+        <article><span>3</span><i class="bi bi-credit-card"></i><h3>Check out</h3><p>Review distance, collection and payment details.</p></article>
+        <article><span>4</span><i class="bi bi-emoji-smile"></i><h3>Enjoy local</h3><p>Track the order and discover your next favourite.</p></article>
+    </div>
+</section>
+
+<section class="orbit-producer-cta">
+    <div><p class="orbit-kicker">Grow it. Make it. Bake it.</p><h2>Your next regular could live around the corner.</h2></div>
+    <a class="orbit-button orbit-button-light" href="{% url 'mainApp:producers:register' %}">Join as a producer <i class="bi bi-arrow-up-right"></i></a>
+</section>
+{% endblock %}

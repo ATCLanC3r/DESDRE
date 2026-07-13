@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'products/surplus_deals.css' %}">
+{% endblock %}
+
+{% block title %}Surplus Deals — Bristol Regional Food Network{% endblock %}
+
+{% block content %}
+<div class="surplus-wrapper">
+  <div class="surplus-header">
+    <h1>Surplus Deals</h1>
+    <p>Fresh produce at reduced prices — act fast before they expire!</p>
+  </div>
+
+  {% if not deals %}
+  <div class="surplus-empty">
+    <i class="bi bi-emoji-frown"></i>
+    <p>No surplus deals available right now.</p>
+    <p>Check back soon — producers add new deals regularly.</p>
+    <a href="{% url 'mainApp:products:product_list' %}"
+       class="btn-login-prompt">
+      Browse All Products
+    </a>
+  </div>
+  {% else %}
+  <div class="deals-grid">
+    {% for deal in deals %}
+    <a href="{% url 'mainApp:products:product_detail' deal.product_id %}" class="deal-card"> 
+      <!-- Image area -->
+      <div class="deal-image">
+        {% if deal.product.image %}
+          <img src="{{ deal.product.image.url }}" alt="{{ deal.product.name }}">
+        {% else %}
+          <div class="no-image">
+          </div>
+        {% endif %}
+        <span class="discount-badge">
+          {{ deal.discount_percent }}% OFF
+        </span>
+      </div>
+      
+      <!-- Card body -->
+      <div class="deal-body">
+        <h2>{{ deal.product.name }}</h2>
+        <div class="deal-producer">
+          <i class="bi bi-shop"></i> {{ deal.product.producer.business_name }}
+        </div>
+        
+        <div class="deal-price">
+          <span>£{{ deal.discounted_price }}</span>
+          <span class="original-price">£{{ deal.original_price }}</span>
+          <span class="unit">/ {{ deal.product.unit }}</span>
+        </div>
+        
+        {% if deal.note %}
+        <p class="deal-note">"{{ deal.note }}"</p>
+        {% endif %}
+        
+        {% if deal.best_before_date %}
+        <div class="deal-meta">
+          <i class="bi bi-calendar-x"></i>
+          Best before: {{ deal.best_before_date|date:"d M Y" }}
+        </div>
+        {% endif %}
+        
+        <div class="deal-meta">
+          <i class="bi bi-clock"></i>
+          Expires: {{ deal.expires_at|date:"d M Y, H:i" }}
+        </div>
+        
+        {% if deal.product.has_allergens %}
+        <div class="deal-meta">
+          <i class="bi bi-exclamation-circle"></i>
+          {{ deal.product.allergens_notes }}
+        </div>
+        {% else %}
+        <div class="deal-meta">
+          <i class="bi bi-check-circle"></i>
+          No common allergens
+        </div>
+        {% endif %}
+      </div>
+      
+      <!-- Footer with button -->
+      {% if request.user.is_authenticated %}
+      <div class="deal-footer">
+        <form method="post" action="{% url 'mainApp:customers:add_to_cart' deal.product.id %}" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="quantity" value="1">
+          <button type="submit" class="btn-add-deal">
+            <i class="bi bi-cart-plus"></i> Add to Cart
+          </button>
+        </form>
+      </div>
+      {% else %}
+      <div class="deal-footer">
+        <a href="{% url 'mainApp:customers:login' %}?next={% url 'mainApp:products:surplus_deals' %}" 
+           class="btn-login-prompt">
+          <i class="bi bi-box-arrow-in-right"></i> Log in to buy
+        </a>
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

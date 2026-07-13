@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'auth/register.css' %}">
+{% endblock %}
+
+{% block title %}Producer Registration{% endblock %}
+
+{% block content %}
+<div class="auth-split">
+
+    <!-- Left panel -->
+    <div class="auth-split-left">
+        <div style="text-align:center;">
+            <i class="bi bi-shop" style="font-size:4rem; color:#6ee76e; margin-bottom:1rem; display:block;"></i>
+            <h2 style="font-size:1.75rem; font-weight:800; margin-bottom:0.5rem;">Become a Producer</h2>
+            <p style="color:rgba(255,255,255,0.75); font-size:1rem; line-height:1.6; max-width:280px; margin:0 auto 1.5rem;">
+                Join 50+ local farms already selling on Bristol Regional Food Network. Reach thousands of customers who value fresh, local food.
+            </p>
+            <div style="display:flex; flex-direction:column; gap:0.6rem; text-align:left; background:rgba(255,255,255,0.1); border-radius:10px; padding:1.25rem; max-width:280px; margin:0 auto;">
+                <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.875rem; color:rgba(255,255,255,0.85);">
+                    <i class="bi bi-check-circle-fill" style="color:#6ee76e;"></i> Easy product management
+                </div>
+                <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.875rem; color:rgba(255,255,255,0.85);">
+                    <i class="bi bi-check-circle-fill" style="color:#6ee76e;"></i> Only 5% commission
+                </div>
+                <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.875rem; color:rgba(255,255,255,0.85);">
+                    <i class="bi bi-check-circle-fill" style="color:#6ee76e;"></i> AI quality assurance
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="auth-split-right">
+        <div class="register-card">
+
+            <div class="register-header">
+                <h2>Become a Producer</h2>
+                <p>Join our network of local food producers</p>
+            </div>
+
+            <!-- Non-field errors -->
+            <!-- {% if form.non_field_errors %}
+            <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+                <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                <div>{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+            </div>
+            {% endif %} -->
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <!-- Personal + Business info -->
+                <div class="form-section">
+                    <h6><i class="bi bi-person-badge"></i> Personal Information</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">Username *</label>
+                            {{ form.username }}
+                            {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors.0 }}</div>{% endif %}
+                            {% if form.username.help_text %}<small class="text-muted">{{ form.username.help_text }}</small>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">Email *</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name *</label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name *</label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.phone_number.id_for_label }}" class="form-label">Phone Number *</label>
+                            {{ form.phone_number }}
+                            {% if form.phone_number.errors %}<div class="text-danger small">{{ form.phone_number.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.business_name.id_for_label }}" class="form-label"><i class="bi bi-building me-1"></i>Farm/Business Name *</label>
+                            {{ form.business_name }}
+                            {% if form.business_name.errors %}<div class="text-danger small">{{ form.business_name.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Farm Location -->
+                <div class="form-section">
+                    <h6><i class="bi bi-geo-alt"></i> Farm Location</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <label for="{{ form.farm_address_line1.id_for_label }}" class="form-label">Address Line 1 *</label>
+                            {{ form.farm_address_line1 }}
+                            {% if form.farm_address_line1.errors %}<div class="text-danger small">{{ form.farm_address_line1.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label for="{{ form.farm_address_line2.id_for_label }}" class="form-label">Address Line 2 <span class="optional-label">(Optional)</span></label>
+                            {{ form.farm_address_line2 }}
+                            {% if form.farm_address_line2.errors %}<div class="text-danger small">{{ form.farm_address_line2.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.farm_city.id_for_label }}" class="form-label">City/Town *</label>
+                            {{ form.farm_city }}
+                            {% if form.farm_city.errors %}<div class="text-danger small">{{ form.farm_city.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.farm_county.id_for_label }}" class="form-label">County <span class="optional-label">(Optional)</span></label>
+                            {{ form.farm_county }}
+                            {% if form.farm_county.errors %}<div class="text-danger small">{{ form.farm_county.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.farm_post_code.id_for_label }}" class="form-label">Post Code *</label>
+                            {{ form.farm_post_code }}
+                            {% if form.farm_post_code.errors %}<div class="text-danger small">{{ form.farm_post_code.errors.0 }}</div>{% endif %}
+                            <small class="text-muted">Used to calculate food miles to customers</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security -->
+                <div class="form-section">
+                    <h6><i class="bi bi-shield-lock"></i> Security</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.password1.id_for_label }}" class="form-label">{{ form.password1.label }} *</label>
+                            {{ form.password1 }}
+                            {% if form.password1.errors %}<div class="text-danger small">{{ form.password1.errors.0 }}</div>{% endif %}
+                            <div class="password-hints">
+                                <div>• At least 8 characters</div>
+                                <div>• Cannot be too similar to personal info</div>
+                                <div>• Cannot be commonly used</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }} *</label>
+                            {{ form.password2 }}
+                            {% if form.password2.errors %}<div class="text-danger small">{{ form.password2.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terms -->
+                <div class="terms-wrapper">
+                    <div class="form-check">
+                        <input type="checkbox" name="terms" id="terms" required class="form-check-input">
+                        <label for="terms" class="form-check-label">
+                            I agree to the <a href="#">Producer Terms of Service</a> and <a href="#">Privacy Policy</a> *
+                        </label>
+                    </div>
+                    {% if form.terms.errors %}
+                    <div class="text-danger small mt-1">{{ form.terms.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn-primary register-submit-btn">
+                    <i class="bi bi-person-plus"></i> Register as Producer
+                </button>
+            </form>
+
+            <div class="register-footer">
+                <p>Already have a producer account?
+                    <a href="{% url 'mainApp:producers:login' %}">
+                        Login here <i class="bi bi-arrow-right"></i>
+                    </a>
+                </p>
+                <p class="customer-link">Are you a customer?
+                    <a href="{% url 'mainApp:customers:register' %}">Customer Registration</a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

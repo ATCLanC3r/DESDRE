@@ -1,0 +1,637 @@
+<!-- templates/orders/checkout.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block extra_css %}
+<style>
+.checkout-wrapper { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+/* Progress stepper */
+.checkout-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.cp-step {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-muted);
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+}
+.cp-step.active { background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; }
+.cp-step .cp-dot { width: 22px; height: 22px; border-radius: 50%; background: var(--color-border); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--color-muted); }
+.cp-step.active .cp-dot { background: var(--color-primary); color: white; }
+.cp-sep { color: var(--color-muted); font-size: 0.8rem; }
+
+/* Two-column */
+.checkout-layout { display: grid; grid-template-columns: 1fr 380px; gap: 1.5rem; align-items: flex-start; }
+@media (max-width: 900px) { .checkout-layout { grid-template-columns: 1fr; } }
+
+/* Left panel */
+.checkout-left-panel .panel-card {
+    background: var(--color-surface);
+    border: 1.5px solid var(--color-border);
+    border-radius: 12px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+}
+.panel-header {
+    padding: 1rem 1.25rem;
+    background: var(--color-primary-light);
+    border-bottom: 1px solid var(--color-border);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.panel-body { padding: 1.25rem; }
+
+/* Address option cards */
+.address-option {
+    border: 1.5px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.address-option:hover { background: var(--color-primary-light); border-color: var(--color-primary); }
+.address-option:has(input[type="radio"]:checked) {
+    background: var(--color-primary-light) !important;
+    border-color: var(--color-primary) !important;
+}
+.address-option .form-check-input {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    border: 2px solid #000 !important;
+    border-radius: 50% !important;
+    outline: none !important;
+    background-color: #fff !important;
+    position: relative !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    margin-top: -2px !important;
+}
+.address-option .form-check-input:checked {
+    border-color: #000 !important;
+    background-color: #fff !important;
+}
+.address-option .form-check-input:checked::after {
+    content: "" !important;
+    width: 10px !important;
+    height: 10px !important;
+    background-color: #000 !important;
+    border-radius: 50% !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    display: block !important;
+}
+.address-type-badge { font-size: 0.85rem; font-weight: 600; color: var(--color-text); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem; }
+.address-details { font-size: 0.875rem; color: var(--color-muted); }
+.address-label { background: var(--color-border); padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; color: var(--color-muted); margin-right: 6px; display: inline-block; }
+
+/* Producer section inside left panel */
+.producer-section {
+    background: var(--color-bg);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--color-border);
+}
+.producer-section h4 {
+    color: var(--color-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-primary-light);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+.delivery-info {
+    background: var(--color-surface);
+    border-radius: 8px;
+    padding: 0.875rem;
+    margin-top: 0.75rem;
+    border: 1px solid var(--color-border);
+}
+.delivery-info label { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem; display: block; }
+
+/* Right: summary sidebar */
+.checkout-summary-sidebar { position: sticky; top: 80px; }
+.checkout-summary-card {
+    background: var(--color-surface);
+    border: 1.5px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.summary-header { padding: 1rem 1.25rem; background: var(--color-primary-light); border-bottom: 1px solid var(--color-border); font-weight: 700; font-size: 0.95rem; color: var(--color-text); }
+.summary-body { padding: 1.25rem; }
+.summary-producer-section { margin-bottom: 1rem; }
+.summary-producer-name { font-size: 0.8rem; font-weight: 700; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.summary-item-row { display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.3rem; color: var(--color-text); }
+.summary-divider { border-top: 1.5px solid var(--color-border); margin: 1rem 0; }
+.summary-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+.summary-total-amount { color: var(--color-primary); font-size: 1.35rem; }
+.btn-place-order {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.875rem;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 1.25rem;
+}
+.btn-place-order:hover { background: var(--color-primary-hover); }
+.btn-place-order:disabled { background: #9ca3af; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="checkout-wrapper">
+    <h1 class="mb-1" style="font-weight:800; font-size:1.75rem;">Checkout</h1>
+    <p class="text-muted mb-3" style="font-size:0.9rem;">Complete your order securely</p>
+
+    <!-- Progress indicator -->
+    <div class="checkout-progress">
+        <div class="cp-step active">
+            <span class="cp-dot">1</span> Delivery Details
+        </div>
+        <span class="cp-sep"><i class="bi bi-chevron-right"></i></span>
+        <div class="cp-step">
+            <span class="cp-dot">2</span> Review
+        </div>
+        <span class="cp-sep"><i class="bi bi-chevron-right"></i></span>
+        <div class="cp-step">
+            <span class="cp-dot">3</span> Pay
+        </div>
+    </div>
+
+    <form id="checkout-form" method="post" action="{% url 'mainApp:orders:create_checkout_session' %}">
+    {% csrf_token %}
+    <div class="checkout-layout">
+
+        <!-- Left: delivery details -->
+        <div class="checkout-left-panel">
+
+            <!-- STEP 1: Delivery Details -->
+            <div id="step-section-1">
+                <!-- Delivery address -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <i class="bi bi-geo-alt-fill"></i> Delivery Address
+                        {% if addresses %}
+                        <a href="{% url 'mainApp:manage_addresses' %}" class="ms-auto" style="font-size:0.8rem; color:var(--color-primary); font-weight:500; text-decoration:none;">
+                            <i class="bi bi-plus-circle"></i> Manage
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="panel-body">
+                        {% if addresses %}
+                            {% for address in addresses %}
+                            <div class="address-option" onclick="selectAddress(this, '{{ address.id }}')">
+                                <div class="form-check">
+                                    <input class="form-check-input"
+                                        type="radio"
+                                        name="address_id"
+                                        value="{{ address.id }}"
+                                        id="address_{{ address.id }}"
+                                        {% if address.is_default %}checked{% endif %}
+                                        required>
+                                    <label class="form-check-label w-100" for="address_{{ address.id }}">
+                                        <div class="address-type-badge">
+                                            <i class="bi bi-{% if address.address_type == 'home' %}house-door{% elif address.address_type == 'shipping' %}truck{% elif address.address_type == 'billing' %}credit-card{% elif address.address_type == 'business' %}building{% else %}geo-alt{% endif %}"></i>
+                                            {{ address.get_address_type_display }}
+                                            {% if address.is_default %}<span class="badge bg-success ms-1" style="font-size:0.68rem;">Default</span>{% endif %}
+                                        </div>
+                                        <div class="address-details">
+                                            {% if address.label %}<span class="address-label">{{ address.label }}</span>{% endif %}
+                                            {{ address.address_line1 }}, {{ address.city }}, {{ address.post_code }}
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-geo-alt-fill" style="font-size:2.5rem; color:var(--color-muted);"></i>
+                                <p class="mt-2 mb-2" style="font-size:0.9rem;">You need to add a delivery address first.</p>
+                                <a href="{% url 'mainApp:manage_addresses' %}" class="btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Add Address
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Per-producer delivery info -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <i class="bi bi-calendar-event"></i> Delivery Details
+                    </div>
+                    <div class="panel-body">
+                        {% for producer_id, producer_data in producer_groups.items %}
+                        <div class="producer-section">
+                            <h4><i class="bi bi-shop"></i> {{ producer_data.business_name }}</h4>
+                            <div class="delivery-info">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">
+                                            <i class="bi bi-calendar3"></i> Delivery Date
+                                        </label>
+                                        <input type="date"
+                                                name="delivery_date_{{ producer_id }}"
+                                                class="form-control"
+                                                min="{{ producer_data.min_delivery_date }}"
+                                                data-lead-hours="{{ producer_data.lead_time_hours }}"
+                                                required>
+                                        <small class="text-muted">Min {{ producer_data.lead_time_hours }} hours notice</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">
+                                            <i class="bi bi-chat-left-text"></i> Special Instructions
+                                        </label>
+                                        <textarea name="customer_note_{{ producer_id }}"
+                                                    class="form-control"
+                                                    rows="2"
+                                                    placeholder="e.g., Package seperately"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        <!-- Global delivery notes -->
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-info-circle"></i> General Delivery Notes
+                            </label>
+                            <textarea name="global_delivery_notes"
+                                        class="form-control"
+                                        rows="2"
+                                        placeholder="Any instructions for all producers/delivery (e.g., ring doorbell)"></textarea>
+                            <small class="text-muted">Shared with all producers</small>
+                        </div>
+
+                        <!-- TC-018: Recurring order option for restaurant users -->
+                        {% if request.user.role == 'restaurant' %}
+                        <div class="mt-3 p-3 rounded-lg" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="make_recurring" id="make_recurring_check"
+                                       onchange="toggleRecurringOptions(this.checked)">
+                                <label class="form-check-label fw-semibold" for="make_recurring_check" style="color:#1e40af;">
+                                    <i class="bi bi-arrow-repeat"></i> Make this a recurring order
+                                </label>
+                            </div>
+                            <div id="recurring-options" style="display:none;">
+                                <div class="row g-2 mt-1">
+                                    <div class="col-md-4">
+                                        <label class="form-label" style="font-size:0.85rem;">Frequency</label>
+                                        <select name="recurrence" class="form-control form-control-sm">
+                                            <option value="weekly">Weekly</option>
+                                            <option value="fortnightly">Fortnightly</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" style="font-size:0.85rem;">Order Day</label>
+                                        <select name="recurrence_day" class="form-control form-control-sm">
+                                            <option value="monday">Monday</option>
+                                            <option value="tuesday">Tuesday</option>
+                                            <option value="wednesday">Wednesday</option>
+                                            <option value="thursday">Thursday</option>
+                                            <option value="friday">Friday</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" style="font-size:0.85rem;">Delivery Day</label>
+                                        <select name="delivery_day" class="form-control form-control-sm">
+                                            <option value="monday">Monday</option>
+                                            <option value="tuesday">Tuesday</option>
+                                            <option value="wednesday">Wednesday</option>
+                                            <option value="thursday">Thursday</option>
+                                            <option value="friday">Friday</option>
+                                            <option value="saturday">Saturday</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-1">Your order will repeat automatically. You can pause or cancel anytime from your account.</small>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- TC-017: Special instructions for community group / bulk deliveries -->
+                        {% if request.user.role == 'community_member' %}
+                        <div class="mt-3 p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                            <label class="form-label fw-semibold text-green-800">
+                                <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                Special Bulk Delivery Instructions
+                            </label>
+                            <textarea name="special_instructions"
+                                        class="form-control mt-1"
+                                        rows="3"
+                                        placeholder="e.g. 'Delivery to kitchen entrance, contact kitchen manager on 07700 900000'"></textarea>
+                            <small class="text-muted">These instructions will be sent to all producers with your order.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Review Order -->
+            <div id="step-section-2" style="display: none;">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <i class="bi bi-receipt"></i> Review Your Order
+                    </div>
+                    <div class="panel-body">
+                        <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+                            <h5 style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="bi bi-geo-alt-fill"></i> Delivery Address
+                            </h5>
+                            <p id="review-address-text" style="font-size: 0.9rem; color: var(--color-text); padding-left: 1.5rem; margin: 0; font-weight: 500;"></p>
+                        </div>
+                        
+                        <div>
+                            <h5 style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="bi bi-calendar-event"></i> Delivery Dates &amp; Notes
+                            </h5>
+                            <div id="review-deliveries" style="padding-left: 1.5rem;">
+                                <!-- populated dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-clear-scan" onclick="goToStep(1)" style="width: auto; padding: 0.55rem 1.5rem; display: inline-flex;">
+                    <i class="bi bi-arrow-left me-2"></i> Back to Delivery Details
+                </button>
+            </div>
+
+            <!-- STEP 3: Secure Payment -->
+            <div id="step-section-3" style="display: none;">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <i class="bi bi-shield-lock-fill"></i> Secure Payment
+                    </div>
+                    <div class="panel-body text-center py-4">
+                        <i class="bi bi-shield-lock" style="font-size: 3.5rem; color: var(--color-primary); display: block; margin-bottom: 1rem;"></i>
+                        <h4 style="font-weight: 700; font-size: 1.15rem; color: var(--color-text); margin-bottom: 0.5rem;">Ready to complete your payment</h4>
+                        <p style="font-size: 0.9rem; color: var(--color-muted); max-width: 440px; margin: 0 auto; line-height: 1.5;">
+                            Click the **Pay** button on the right sidebar to securely pay your order total of <strong>£{{ total }}</strong>.
+                        </p>
+                        
+                        <div class="text-start mt-4" style="display:none;">
+                            <div class="p-3 mb-3 rounded-3" style="background:#eff6ff;border:1px solid #bfdbfe;font-size:.85rem;">
+                                Simulated test payment only - no real charge. Success card: <strong>4242 4242 4242 4242</strong>. Decline card: <strong>4000 0000 0000 0002</strong>.
+                            </div>
+                            <label class="form-label" for="cardholder_name">Cardholder name</label>
+                            <input class="form-control mb-3" id="cardholder_name" name="cardholder_name">
+                            <label class="form-label" for="card_number">Test card number</label>
+                            <input class="form-control mb-3" id="card_number" name="card_number" inputmode="numeric" maxlength="23" placeholder="4242 4242 4242 4242">
+                            <div class="row g-3">
+                                <div class="col-7"><label class="form-label" for="card_expiry">Expiry (MM/YY)</label><input class="form-control" id="card_expiry" name="card_expiry" maxlength="7" placeholder="12/30"></div>
+                                <div class="col-5"><label class="form-label" for="card_cvc">CVC</label><input class="form-control" id="card_cvc" name="card_cvc" inputmode="numeric" maxlength="4" placeholder="123"></div>
+                            </div>
+                            <small class="text-muted d-block mt-2">Use any future expiry and any 3-digit CVC. Card data is validated but never stored.</small>
+                        </div>
+
+                        <div class="form-check mt-4 p-3 rounded-3" style="display:none;">
+                            <input class="form-check-input" type="checkbox" name="use_mock_payment" id="use_mock_payment_check" style="margin-left:0; margin-right:10px; float:left; border-color:#d97706 !important;">
+                            <label class="form-check-label fw-bold" for="use_mock_payment_check" style="color:#b45309; font-size:0.9rem; cursor:pointer;">
+                                <i class="bi bi-shield-check"></i> Use Local Mock Payment
+                            </label>
+                            <small class="text-muted d-block mt-1" style="font-size:0.8rem; padding-left:1.75rem;">
+                                Bypasses Stripe and processes your order confirmation instantly in real-time.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-clear-scan" onclick="goToStep(2)" style="width: auto; padding: 0.55rem 1.5rem; display: inline-flex;">
+                    <i class="bi bi-arrow-left me-2"></i> Back to Review
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Right: summary sidebar -->
+        <aside class="checkout-summary-sidebar">
+            <div class="checkout-summary-card">
+                <div class="summary-header">
+                    <i class="bi bi-receipt"></i> Order Summary
+                </div>
+                <div class="summary-body">
+                    {% for producer_id, producer_data in producer_groups.items %}
+                    <div class="summary-producer-section">
+                        <div class="summary-producer-name">{{ producer_data.business_name }}</div>
+                        {% for item in producer_data.items %}
+                        <div class="summary-item-row">
+                            <span>{{ item.product_name }} ×{{ item.quantity }}</span>
+                            <span>£{{ item.line_total }}</span>
+                        </div>
+                        {% endfor %}
+                        <div class="summary-item-row" style="font-weight:600; color:var(--color-text); border-top:1px solid var(--color-border); padding-top:0.3rem; margin-top:0.3rem;">
+                            <span>Subtotal</span>
+                            <span>£{{ producer_data.subtotal }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="summary-divider"></div>
+
+                    <div class="summary-total-row">
+                        <span>Order Total</span>
+                        <span class="summary-total-amount">£{{ total }}</span>
+                    </div>
+                    <div class="summary-item-row"><span>Network commission (5%, included)</span><span>£{{ commission_total }}</span></div>
+                    <div class="summary-item-row"><span>Producer allocation (95%)</span><span>£{{ producer_total }}</span></div>
+                    <p style="font-size:0.78rem; color:var(--color-muted); margin-top:0.3rem;">
+                        <i class="bi bi-shield-lock"></i> Payment processed securely via Stripe Test Mode
+                    </p>
+
+                    {% if addresses %}
+                    <button type="button" class="btn-place-order" id="step-nav-button" onclick="handleStepNav()">
+                        Next: Review <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                    <button type="submit" class="btn-place-order" id="checkout-button" style="display:none;">
+                        <i class="bi bi-lock"></i> Pay £{{ total }}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </aside>
+    </div>
+    </form>
+</div>
+
+<script>
+    const checkoutButton = document.getElementById('checkout-button');
+    const stepNavButton = document.getElementById('step-nav-button');
+
+    let currentStep = 1;
+
+    function selectAddress(element, addressId) {
+        const radio = element.querySelector('input[type="radio"]');
+        if (radio && !radio.checked) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        let defaultRadio = document.querySelector('input[name="address_id"]:checked');
+        if (!defaultRadio) {
+            const firstRadio = document.querySelector('input[name="address_id"]');
+            if (firstRadio) {
+                firstRadio.checked = true;
+            }
+        }
+        goToStep(1);
+    });
+
+    function goToStep(step) {
+        // Toggle sections
+        document.getElementById('step-section-1').style.display = step === 1 ? 'block' : 'none';
+        document.getElementById('step-section-2').style.display = step === 2 ? 'block' : 'none';
+        document.getElementById('step-section-3').style.display = step === 3 ? 'block' : 'none';
+
+        // Update stepper indicators
+        document.querySelectorAll('.cp-step').forEach((el, index) => {
+            if (index + 1 === step) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+
+        // Update button controls
+        if (stepNavButton) {
+            if (step === 1) {
+                stepNavButton.style.display = 'flex';
+                stepNavButton.innerHTML = 'Next: Review <i class="bi bi-arrow-right ms-1"></i>';
+            } else if (step === 2) {
+                stepNavButton.style.display = 'flex';
+                stepNavButton.innerHTML = 'Next: Pay <i class="bi bi-arrow-right ms-1"></i>';
+            } else if (step === 3) {
+                stepNavButton.style.display = 'none';
+            }
+        }
+
+        if (checkoutButton) {
+            checkoutButton.style.display = step === 3 ? 'flex' : 'none';
+        }
+
+        currentStep = step;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleStepNav() {
+        if (currentStep === 1) {
+            // Validate address selection
+            const selectedAddress = document.querySelector('input[name="address_id"]:checked');
+            if (!selectedAddress) {
+                alert('Please select a delivery address.');
+                return;
+            }
+
+            // Validate delivery dates
+            const deliveryDateInputs = document.querySelectorAll('input[type="date"][name^="delivery_date_"]');
+            let allValid = true;
+            let errorMessages = [];
+            deliveryDateInputs.forEach(input => {
+                if (!input.value) {
+                    const producerSection = input.closest('.producer-section');
+                    const producerName = producerSection ? producerSection.querySelector('h4').innerText : 'producer';
+                    errorMessages.push(`Please select a delivery date for ${producerName}`);
+                    allValid = false;
+                }
+            });
+            if (!allValid) {
+                alert(errorMessages.join('\n'));
+                return;
+            }
+
+            // Populate Review details
+            const parentOption = selectedAddress.closest('.address-option');
+            const addressText = parentOption ? parentOption.querySelector('.address-details').innerText : 'Selected Address';
+            document.getElementById('review-address-text').innerText = addressText;
+
+            // Populate delivery schedule review
+            const scheduleDiv = document.getElementById('review-deliveries');
+            scheduleDiv.innerHTML = '';
+            deliveryDateInputs.forEach(input => {
+                const producerSection = input.closest('.producer-section');
+                const producerName = producerSection ? producerSection.querySelector('h4').innerText : 'Producer';
+                const dateVal = input.value;
+                const dateObj = new Date(dateVal);
+                const formattedDate = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                const noteText = producerSection ? producerSection.querySelector('textarea').value : '';
+                
+                const deliveryRow = document.createElement('div');
+                deliveryRow.style.marginBottom = '1.25rem';
+                deliveryRow.innerHTML = `
+                    <div style="font-weight:700;font-size:0.9rem;color:var(--color-text);margin-bottom:0.25rem;">${producerName}</div>
+                    <div style="font-size:0.875rem;color:var(--color-muted);display:flex;align-items:center;gap:0.4rem;">
+                        <i class="bi bi-truck"></i> Delivery: <strong style="color:var(--color-text);">${formattedDate}</strong>
+                    </div>
+                    ${noteText ? `<div style="font-size:0.82rem;color:var(--color-muted);margin-top:0.3rem;padding:0.35rem 0.6rem;background:var(--color-bg);border-radius:6px;border-left:3px solid var(--color-primary);font-style:italic;">Notes: "${noteText}"</div>` : ''}
+                `;
+                scheduleDiv.appendChild(deliveryRow);
+            });
+
+            goToStep(2);
+        } else if (currentStep === 2) {
+            goToStep(3);
+        }
+    }
+
+    if (checkoutButton) {
+        checkoutButton.addEventListener('click', (event) => {
+            // Let the form submit natively, but show processing UI
+            setTimeout(() => {
+                checkoutButton.disabled = true;
+                checkoutButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processing…';
+            }, 10);
+        });
+    }
+
+    function toggleRecurringOptions(checked) {
+        const opts = document.getElementById('recurring-options');
+        if (opts) opts.style.display = checked ? 'block' : 'none';
+    }
+
+    function setMinDeliveryDates() {
+        const today = new Date();
+        document.querySelectorAll('input[type="date"][name^="delivery_date_"]').forEach(input => {
+            const leadHours = parseInt(input.dataset.leadHours) || 48;
+            const minDate = new Date(today);
+            minDate.setDate(today.getDate() + Math.ceil(leadHours / 24));
+            input.min = minDate.toISOString().split('T')[0];
+        });
+    }
+    setMinDeliveryDates();
+</script>
+{% endblock %}

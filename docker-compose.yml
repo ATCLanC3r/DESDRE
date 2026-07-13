@@ -1,0 +1,135 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-brfn_db}
+      POSTGRES_USER: ${DB_USER:-brfn_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-brfn_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-brfn_user} -d ${DB_NAME:-brfn_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  web:
+    build: .
+    command: gunicorn BRFN.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
+    ports:
+      - "8000:8000"
+    environment: &django-environment
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-development-only-change-me-before-public-deployment-0123456789}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      DB_NAME: ${DB_NAME:-brfn_db}
+      DB_USER: ${DB_USER:-brfn_user}
+      DB_PASSWORD: ${DB_PASSWORD:-brfn_dev_password}
+      DB_HOST: db
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CACHE_URL: redis://redis:6379/1
+      USE_REDIS_CACHE: "true"
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      RUN_MIGRATIONS: "true"
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      ML_SERVICE_URL: http://ml-service:8001
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/static_collected
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    restart: unless-stopped
+
+  celery:
+    build: .
+    command: celery -A BRFN worker --loglevel=info --concurrency=2
+    environment:
+      <<: *django-environment
+      RUN_MIGRATIONS: "false"
+      SEED_DEMO_DATA: "false"
+    depends_on:
+      web:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    command: celery -A BRFN beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      <<: *django-environment
+      RUN_MIGRATIONS: "false"
+      SEED_DEMO_DATA: "false"
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    profiles: ["proxy"]
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deployment/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+  ml-service:
+    build: ./ml-service
+    environment:
+      ML_MODEL_PATH: /app/ml/best_model.keras
+      ML_ENCODER_PATH: /app/ml/encoders.pkl
+      RECOMMENDATION_MODEL_PATH: /app/ml/recommendation/final/sigmoid_lstm.keras
+      RECOMMENDATION_MAPPINGS_PATH: /app/ml/recommendation/final/sigmoid_mappings.pkl
+    volumes:
+      - ./ml:/app/ml
+      - ml_versions:/app/ml/versions
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
+  static_data:
+  ml_versions:

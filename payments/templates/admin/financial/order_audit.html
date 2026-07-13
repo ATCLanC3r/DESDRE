@@ -1,0 +1,185 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+<style>
+    .order-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    .order-table th, .order-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .order-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .producer-section {
+        margin-bottom: 30px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .producer-header {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border-bottom: 1px solid #ddd;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    .producer-header.highlighted {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    .summary-box {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .verification-ok {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .verification-error {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .highlighted-row {
+        background-color: #fff3cd !important;
+    }
+    .btn {
+        display: inline-block;
+        padding: 8px 16px;
+        text-decoration: none;
+        border-radius: 4px;
+        margin-top: 20px;
+        margin-right: 10px;
+    }
+    .btn-info {
+        background-color: #17a2b8;
+        color: white;
+    }
+    .btn-info:hover {
+        background-color: #138496;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h2>{{ title }}</h2>
+        
+        <!-- Customer Info -->
+        <div class="summary-box">
+            <h3>Customer Information</h3>
+            <p><strong>Name:</strong> {{ customer_name }}</p>
+            <p><strong>Email:</strong> {{ customer_email }}</p>
+        </div>
+        
+        <!-- Order Details -->
+        <div class="summary-box">
+            <h3>Order Details</h3>
+            {% if payment %}
+                <p><strong>Order ID:</strong> {{ payment.id }}</p>
+                <p><strong>Order Total:</strong> £{{ payment.total_amount|floatformat:2 }}</p>
+            {% endif %}
+            <p><strong>Producer (Clicked):</strong> {{ order_producer.producer.business_name }}</p>
+            <p><strong>Status:</strong> {{ order_producer.get_order_status_display }}</p>
+            <p><strong>Completed:</strong> {{ order_producer.completed_at }}</p>
+        </div>
+        
+        <!-- Producers and Items (Grouped by Producer) -->
+        <h3>Order Items by Producer</h3>
+        <p><em>Highlighted sections are producers involved in the settlement this audit was triggered from.</em></p>
+        
+        {% for producer in producers_data %}
+        <div class="producer-section">
+            <div class="producer-header {% if producer.is_highlighted %}highlighted{% endif %}">
+                {{ producer.producer_name }}
+                {% if producer.is_highlighted %}
+                    <span style="color: #856404; font-size: 12px; font-weight: normal;">(Included in Settlement #{{ settlement.id }})</span>
+                {% endif %}
+            </div>
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Unit Price</th>
+                        <th>Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in producer.items %}
+                    <tr {% if item.is_highlighted %}class="highlighted-row"{% endif %}>
+                        <td>{{ item.product_name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.unit }}</td>
+                        <td>£{{ item.product_price|floatformat:2 }}</td>
+                        <td>£{{ item.line_total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: bold; background-color: #f8f9fa;">
+                        <td colspan="4" style="text-align: right;">Producer Subtotal:</td>
+                        <td>£{{ producer.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    <tr style="font-weight: bold;">
+                        <td colspan="4" style="text-align: right;">Commission (5%):</td>
+                        <td>£{{ producer.commission|floatformat:2 }}</td>
+                    </tr>
+                    <tr style="font-weight: bold; color: #28a745;">
+                        <td colspan="4" style="text-align: right;">Payout (95%):</td>
+                        <td>£{{ producer.payout|floatformat:2 }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        
+        <!-- Financial Verification (for clicked producer) -->
+        <div class="summary-box">
+            <h3>Financial Verification (For Clicked Producer)</h3>
+            <p><strong>Producer Subtotal:</strong> £{{ order_producer.producer_subtotal|floatformat:2 }}</p>
+            <p><strong>Expected Commission (5%):</strong> £{{ expected_commission|floatformat:2 }}</p>
+            <p><strong>Actual Commission:</strong> £{{ order_producer.commission|floatformat:2 }}</p>
+            <p>
+                <strong>Verification:</strong>
+                {% if commission_matches %}
+                    <span class="verification-ok">✓ Match</span>
+                {% else %}
+                    <span class="verification-error">✗ Mismatch</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- Settlement Info -->
+        {% if settlement %}
+        <div class="summary-box">
+            <h3>Settlement Information</h3>
+            <p><strong>Settlement ID:</strong> {{ settlement.id }}</p>
+            <p><strong>Period:</strong> {{ settlement.week_start }} to {{ settlement.week_end }}</p>
+            <p><strong>Status:</strong> {{ settlement.get_settlement_status_display }}</p>
+            <p><strong>Paid At:</strong> {{ settlement.paid_at }}</p>
+        </div>
+        {% endif %}
+        
+        <!-- Navigation -->
+        <a href="{% url 'admin:payments_paymentsettlement_financial_report' %}" class="btn btn-info">
+            Back to Financial Report
+        </a>
+        {% if settlement %}
+        <a href="{% url 'admin:payments_paymentsettlement_orders' settlement.id %}" class="btn btn-info">
+            Back to Settlement Orders
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

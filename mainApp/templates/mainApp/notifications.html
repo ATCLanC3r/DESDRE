@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notifications — Bristol Regional Food Network{% endblock %}
+
+{% block content %}
+<div style="max-width:720px; margin:2rem auto; padding:0 1rem;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; gap:1rem; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+            <i class="bi bi-bell-fill" style="font-size:1.4rem; color:var(--color-primary);"></i>
+            <h1 style="margin:0; font-size:1.4rem; font-weight:700; color:var(--color-text);">Notifications</h1>
+        </div>
+        {% if notifications %}
+        <form method="post" action="{% url 'mainApp:notifications_read_all' %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit"
+                style="background:none; border:1px solid var(--color-border); border-radius:7px; padding:0.4rem 0.9rem; font-size:0.85rem; font-weight:500; color:var(--color-muted); cursor:pointer; transition:all 0.15s;"
+                onmouseover="this.style.background='var(--color-primary-light)'; this.style.color='var(--color-primary)';"
+                onmouseout="this.style.background='none'; this.style.color='var(--color-muted)';">
+                <i class="bi bi-check2-all"></i> Mark all as read
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if notifications %}
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+        {% for notif in notifications %}
+            <div style="
+                background:var(--color-surface);
+                border:1px solid var(--color-border);
+                border-radius:10px;
+                padding:1rem 1.1rem;
+                display:flex;
+                gap:0.9rem;
+                align-items:flex-start;
+                {% if not notif.is_read %}border-left:3px solid var(--color-primary);{% endif %}
+                transition:box-shadow 0.15s;
+            "
+            onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'"
+            onmouseout="this.style.boxShadow='none'">
+
+                <!-- Icon -->
+                <div style="flex-shrink:0; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                    {% if notif.notification_type == 'order' %}background:#dcfce7; color:#16a34a;
+                    {% elif notif.notification_type == 'promo' %}background:#fff7ed; color:#ea580c;
+                    {% elif notif.notification_type == 'system' %}background:#eff6ff; color:#2563eb;
+                    {% else %}background:#f3f4f6; color:#6b7280;{% endif %}">
+                    <i class="bi
+                        {% if notif.notification_type == 'order' %}bi-bag-check
+                        {% elif notif.notification_type == 'promo' %}bi-tag
+                        {% elif notif.notification_type == 'system' %}bi-gear
+                        {% else %}bi-info-circle{% endif %}"></i>
+                </div>
+
+                <!-- Content -->
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.2rem;">
+                        <span style="font-weight:{% if not notif.is_read %}700{% else %}600{% endif %}; font-size:0.9rem; color:var(--color-text);">
+                            {{ notif.title }}
+                        </span>
+                        {% if not notif.is_read %}
+                        <span style="background:var(--color-primary); color:white; font-size:0.6rem; font-weight:700; padding:1px 6px; border-radius:99px; text-transform:uppercase; letter-spacing:0.04em;">New</span>
+                        {% endif %}
+                    </div>
+                    <p style="margin:0 0 0.4rem; font-size:0.875rem; color:var(--color-muted); line-height:1.5;">{{ notif.message }}</p>
+                    <span style="font-size:0.75rem; color:var(--color-muted);">{{ notif.created_at|timesince }} ago</span>
+                </div>
+
+                <!-- Link arrow -->
+                {% if notif.link %}
+                <a href="{{ notif.link }}" style="flex-shrink:0; color:var(--color-primary); font-size:1.1rem; padding:0.25rem; border-radius:6px; transition:background 0.15s; text-decoration:none;"
+                   title="Go to details"
+                   onmouseover="this.style.background='var(--color-primary-light)'"
+                   onmouseout="this.style.background='none'">
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <div style="text-align:center; padding:4rem 1rem; color:var(--color-muted);">
+            <i class="bi bi-bell-slash" style="font-size:3rem; display:block; margin-bottom:0.75rem; opacity:0.4;"></i>
+            <p style="font-size:1rem; font-weight:500; margin:0;">You're all caught up!</p>
+            <p style="font-size:0.875rem; margin:0.25rem 0 0;">No notifications yet.</p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
