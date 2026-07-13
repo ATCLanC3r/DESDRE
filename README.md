@@ -1,6 +1,6 @@
 # Bristol Regional Food Network - DESD Resit
 
-This repository contains the combined resit implementation of the Bristol Regional Food Network digital marketplace. It merges the broad marketplace functionality from `DESD-BRFN` with the Docker, Nginx, and Django REST Framework ideas from `g10-bristol-food-network-main`.
+This repository contains the combined resit implementation of the Bristol Regional Food Network digital marketplace. 
 
 The system supports producers, individual customers, community groups, restaurants, and administrators. It includes product management, multi-vendor checkout, order tracking, recurring orders, surplus discounts, traceability, reviews, recipes, food miles, settlements, commission reporting, background jobs, and a REST API.
 
